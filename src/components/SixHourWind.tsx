@@ -1,3 +1,4 @@
+import { FORECAST_MODEL } from '../config'
 import { hourLabel } from '../lib/time'
 import { bandForGust, compassWord, mph, peakGust } from '../lib/wind'
 import type { BeaconForecast } from '../types'
@@ -23,8 +24,9 @@ export function SixHourWind({ forecast }: { forecast: BeaconForecast }) {
         <h3 id="hours-heading" className="section-label">
           Next {hours.length} hours
         </h3>
-        <p className="hours-key">Gust over sustained, mph</p>
+        <p className="hours-key">{FORECAST_MODEL.label} forecast</p>
       </div>
+      <p className="hours-key hours-legend">Large number is the gust, small number is sustained wind, in mph.</p>
       <ol className="hours" style={{ gridTemplateColumns: `repeat(${hours.length}, minmax(0, 1fr))` }}>
         {hours.map((h) => {
           const band = bandForGust(h.gustMph)

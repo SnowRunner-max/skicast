@@ -14,6 +14,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Panorama Gondola top station',
     shortName: 'Summit',
     labelSide: 'right',
+    weatherStation: { id: 'MTH03', name: 'Top Station' },
   },
   {
     id: 'mccoy',
@@ -23,6 +24,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Panorama Gondola mid-station',
     shortName: 'McCoy',
     labelSide: 'left',
+    weatherStation: { id: 'MTH20', name: 'McCoy Station' },
   },
   {
     id: 'main',
@@ -32,6 +34,8 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Panorama Gondola bottom station',
     shortName: 'Main',
     labelSide: 'below',
+    // No station here. Sesame (MTH05) is the nearest, 1,200 ft away and 125 ft higher, so it is not used.
+    weatherStation: null,
   },
   {
     id: 'canyon',
@@ -41,6 +45,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Base of Canyon Express',
     shortName: 'Canyon',
     labelSide: 'left',
+    weatherStation: { id: 'MTH19', name: 'Canyon Lodge' },
   },
   {
     id: 'eagle',
@@ -50,6 +55,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Base of Eagle Express',
     shortName: 'Eagle',
     labelSide: 'left',
+    weatherStation: { id: 'MTH17', name: 'Bottom of Chair 15' },
   },
 ]
 

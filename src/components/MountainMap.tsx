@@ -2,11 +2,12 @@ import { memo, useMemo } from 'react'
 import { BEACONS, stationFor } from '../data/beacons'
 import { MAP, type MapLift } from '../data/mapPaths'
 import { usePanZoom, type Box, type Insets, type View } from '../hooks/usePanZoom'
-import type { BeaconForecast } from '../types'
+import type { Current } from '../lib/current'
 import { Beacon } from './Beacon'
 
 interface Props {
-  forecasts: BeaconForecast[] | null
+  /** Resolved current values by beacon id, or null before the first forecast arrives. */
+  currents: Record<string, Current> | null
   selectedId: string
   onSelect: (id: string) => void
   /** Phone layout: frame the five beacons rather than every lift. */
@@ -115,7 +116,7 @@ function beaconObstacles(x: number, y: number, side: 'left' | 'right' | 'below')
   return [mark, { x: x + 18, y: y - 20, width: 72, height: 40 }]
 }
 
-export function MountainMap({ forecasts, selectedId, onSelect, compact, bottomInset }: Props) {
+export function MountainMap({ currents, selectedId, onSelect, compact, bottomInset }: Props) {
   // Screen-space padding so beacon labels at the edges stay inside the frame.
   const insets: Insets = compact
     ? { top: 78, right: 44, bottom: bottomInset + 56, left: 78 }
@@ -182,7 +183,7 @@ export function MountainMap({ forecasts, selectedId, onSelect, compact, bottomIn
           <Beacon
             key={beacon.id}
             beacon={beacon}
-            forecast={forecasts?.find((f) => f.beacon.id === beacon.id) ?? null}
+            current={currents?.[beacon.id] ?? null}
             selected={beacon.id === selectedId}
             x={x}
             y={y}

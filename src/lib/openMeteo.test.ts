@@ -28,8 +28,8 @@ describe('buildForecastUrl', () => {
     expect(url.searchParams.get('timezone')).toBe('America/Los_Angeles')
   })
 
-  it('does not pin a weather model', () => {
-    expect(url.searchParams.has('models')).toBe(false)
+  it('pins the National Blend model, so the name shown on screen is the one used', () => {
+    expect(url.searchParams.get('models')).toBe('ncep_nbm_conus')
   })
 
   it('takes a different base URL for a paid key', () => {

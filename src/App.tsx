@@ -1,10 +1,12 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { BeaconWidget } from './components/BeaconWidget'
 import { Header } from './components/Header'
 import { MountainMap } from './components/MountainMap'
 import { snapHeights } from './components/BottomSheet'
 import { BEACONS, DEFAULT_BEACON_ID } from './data/beacons'
 import { useForecast } from './hooks/useForecast'
+import { useObservations } from './hooks/useObservations'
+import { resolveCurrent, type Current } from './lib/current'
 import { useMediaQuery } from './hooks/useMediaQuery'
 import { useNow } from './hooks/useNow'
 import { useTheme } from './hooks/useTheme'
@@ -12,6 +14,7 @@ import { useTheme } from './hooks/useTheme'
 export default function App() {
   const { theme, toggle } = useTheme()
   const { forecasts, loading, error, fetchedAt, refresh } = useForecast()
+  const { observations, refresh: refreshObservations } = useObservations()
   const now = useNow()
   const desktop = useMediaQuery('(min-width: 1100px)')
   const [selectedId, setSelectedId] = useState(DEFAULT_BEACON_ID)
@@ -25,6 +28,16 @@ export default function App() {
 
   const beacon = BEACONS.find((b) => b.id === selectedId) ?? BEACONS[0]!
   const forecast = forecasts?.find((f) => f.beacon.id === beacon.id) ?? null
+  const currents = useMemo(() => {
+    if (!forecasts) return null
+    return Object.fromEntries(
+      forecasts.map((f) => [f.beacon.id, resolveCurrent(f, observations?.[f.beacon.id])]),
+    ) as Record<string, Current>
+  }, [forecasts, observations])
+  const onRefresh = useCallback(() => {
+    refresh()
+    refreshObservations()
+  }, [refresh, refreshObservations])
 
   return (
     <div className="app">
@@ -39,7 +52,7 @@ export default function App() {
       <main className="layout">
         <div className="map-frame">
           <MountainMap
-            forecasts={forecasts}
+            currents={currents}
             selectedId={selectedId}
             onSelect={setSelectedId}
             compact={!desktop}
@@ -49,10 +62,11 @@ export default function App() {
         <BeaconWidget
           beacon={beacon}
           forecast={forecast}
+          current={currents?.[beacon.id] ?? null}
           loading={loading}
           error={error}
           now={now}
-          onRefresh={refresh}
+          onRefresh={onRefresh}
           variant={desktop ? 'card' : 'sheet'}
           onSheetSettle={onSheetSettle}
         />

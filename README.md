@@ -2,9 +2,11 @@
 
 Wind and weather on Mammoth Mountain, read straight off the lift map.
 
-One screen: a simplified lift map with a forecast point (a "beacon") at Summit, McCoy Station, Main Lodge, Canyon Lodge and Eagle Lodge. Each beacon shows its gust speed and wind direction on the map. Tap one for current weather, current wind and wind for the next six hours.
+One screen: a simplified lift map with a point (a "beacon") at Summit, McCoy Station, Main Lodge, Canyon Lodge and Eagle Lodge. Each beacon shows its gust speed and wind direction on the map. Tap one for current weather, current wind and wind for the next six hours.
 
-No backend. The browser asks [Open-Meteo](https://open-meteo.com/) directly, one request for all five beacons.
+Current values are measured where a beacon has a weather station, and come from the forecast model where it does not. The next six hours are always the model.
+
+No backend. The browser asks [Open-Meteo](https://open-meteo.com/) for the forecast (one request for all five beacons) and the National Weather Service's public API for station readings (one request per station).
 
 ## Run it
 
@@ -42,18 +44,25 @@ Because the map is rotated, wind arrows are drawn in the map's frame: an arrow s
 | To change | Edit |
 | --- | --- |
 | Wind band cutoffs and labels | `src/lib/wind.ts` |
-| Beacons (station, elevation, label side) | `src/data/beacons.ts` |
-| Open-Meteo host, cache time | `src/config.ts` |
+| Beacons (lift station, weather station, elevation, label side) | `src/data/beacons.ts` |
+| Forecast model, hosts, cache times, how old a reading may be | `src/config.ts` |
+| Info text (the three wordings) | `src/components/DataInfo.tsx` |
+| Which value comes from the station and which from the model | `src/lib/current.ts` |
 | Colors and type | `src/apple.css` (Cottonwood tokens), `src/index.css` |
 | Map rotation, which lifts are drawn | top of `scripts/build-map.ts` |
 
 ## Things to know
 
-- **Forecast points, not weather stations.** The numbers are model forecasts for each spot, corrected for its elevation. Models smooth out ridgelines, so summit gusts can read low.
+- **Measured first, forecast as the fallback, value by value.** `resolveCurrent` takes each of temperature, sustained wind, gust and direction from the station when it has a fresh reading, and from the model when it does not. Sky, cloud cover and precipitation are never measured at these stations, so they are always the model's. A point with no fresh station data gets a warning icon and "Not from weather station."
+- **Which beacons have a station.** Summit (`MTH03`), McCoy (`MTH20`), Canyon (`MTH19`) and Eagle (`MTH17`) each have a Mammoth station at the spot. Main Lodge has none: the nearest, Sesame (`MTH05`), is 1,200 ft away and 125 ft higher, so Main stays on the model. Set `weatherStation` in `beacons.ts` to change that.
+- **Stations are patchy.** Top Station reports temperature and gusts but no sustained wind or direction; Eagle's station reports temperature only. Each missing value falls back to the model on its own, and the screen says which.
+- **Station gusts lag.** The NWS feed only publishes a gust after quality screening, so it is usually 1 to 2 hours old. Gusts up to 3 hours old are used and the screen shows their age; everything else must be under 2 hours old. The feed itself also runs up to an hour behind at times, so every reading is shown with its age rather than called live.
+- **The forecast is NOAA's National Blend of Models (NBM)**, pinned in `config.ts` so the name on screen is the model in use. It is a 2.5 km grid, updated hourly, with gusts calibrated against recent observations. It replaced NOAA HRRR, which Open-Meteo stops serving on 2026-11-30. Neither is fine enough to resolve the summit ridge, so expect model gusts to differ from the stations; `reports/High resolution ski wind models.md` has the research and the plan for per-station correction.
+- **Elevation corrects temperature, not wind.** Each beacon's elevation is sent to Open-Meteo, which adjusts temperature for it. Wind and gusts come back as the model grid cell's values whatever elevation is sent.
 - **Wind bands are rough guides** (calm under 20 mph gusts, windy 20 to 39, strong 40 and up), not Mammoth's rules for running lifts.
 - **Open-Meteo's free tier is for non-commercial use.** If Skicast ever makes money, point `OPEN_METEO_BASE_URL` at the paid host and add the key.
-- **Caching.** A forecast is reused for 10 minutes. The last one is kept in `localStorage` so beacons show immediately on reload, and stays on screen (labelled with its age) if a refresh fails.
+- **Caching.** A forecast is reused for 10 minutes and station readings for 5 (NWS caches them for 5). The last one is kept in `localStorage` so beacons show immediately on reload, and stays on screen (labelled with its age) if a refresh fails.
 
 ## Credits
 
-Lift data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Elevation data from the USGS 3D Elevation Program. Weather data by [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Design tokens from the Cottonwood design system in Ev-made-easy.
+Lift data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Elevation data from the USGS 3D Elevation Program. Forecast by [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Station observations from the [National Weather Service](https://www.weather.gov/) API. Design tokens from the Cottonwood design system in Ev-made-easy.

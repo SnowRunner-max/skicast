@@ -3,7 +3,7 @@ export interface Beacon {
   name: string
   /** OSM node id of the lift station the beacon is pinned to. */
   stationOsmId: number
-  /** Approximate; only used to correct the forecast for altitude. */
+  /** Approximate. Shown on screen and sent to Open-Meteo, which corrects temperature (not wind) for it. */
   elevationFt: number
   /** What the beacon is pinned to, in words. */
   pinnedTo: string
@@ -11,6 +11,19 @@ export interface Beacon {
   shortName: string
   /** Where the map label sits relative to the dot, chosen by hand to stay clear of lift lines. */
   labelSide: 'left' | 'right' | 'below'
+  /**
+   * The weather station at this spot, or null when there is none. Only a
+   * station at the point itself belongs here; a neighbour on a different
+   * slope or a few hundred feet higher is a different wind.
+   */
+  weatherStation: WeatherStation | null
+}
+
+export interface WeatherStation {
+  /** NWS station identifier, e.g. "MTH03". */
+  id: string
+  /** Short name for the station as Mammoth labels it. */
+  name: string
 }
 
 export interface WindHour {
@@ -27,4 +40,21 @@ export interface BeaconForecast {
   now: { tempF: number; feelsF: number; precipIn: number; cloudPct: number; code: number } & WindHour
   next6: WindHour[]
   fetchedAt: string
+}
+
+/**
+ * What a station is reporting now. Any value can be null: stations drop
+ * sensors for hours (an iced anemometer, a temperature-only unit).
+ */
+export interface Observation {
+  stationId: string
+  /** ISO time of the newest reading that supplied temperature or sustained wind. */
+  observedAt: string
+  tempF: number | null
+  speedMph: number | null
+  /** The latest gust reported, which can be much older than `observedAt`. */
+  gustMph: number | null
+  /** ISO time that gust was reported, or null with no gust. */
+  gustAt: string | null
+  dirDeg: number | null
 }

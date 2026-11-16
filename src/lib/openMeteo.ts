@@ -1,4 +1,4 @@
-import { OPEN_METEO_BASE_URL, MOUNTAIN_TIME_ZONE } from '../config'
+import { FORECAST_MODEL, OPEN_METEO_BASE_URL, MOUNTAIN_TIME_ZONE } from '../config'
 import type { Beacon, BeaconForecast, WindHour } from '../types'
 
 /** A beacon plus the coordinates of the station it is pinned to. */
@@ -28,8 +28,10 @@ const FT_TO_M = 0.3048
 
 /**
  * One request covers every beacon: Open-Meteo takes comma-separated lists.
- * `elevation` sets each point's real altitude so the forecast is corrected for
- * it. The weather model is left on Open-Meteo's default on purpose.
+ * `elevation` sets each point's real altitude, which Open-Meteo uses to correct
+ * temperature only: wind and gusts come back as the model grid cell's values,
+ * whatever elevation is sent. The model is pinned (see FORECAST_MODEL) so the
+ * name shown to riders is true.
  */
 export function buildForecastUrl(points: readonly ForecastPoint[], baseUrl: string = OPEN_METEO_BASE_URL): string {
   const params: [string, string][] = [
@@ -42,6 +44,7 @@ export function buildForecastUrl(points: readonly ForecastPoint[], baseUrl: stri
     ['temperature_unit', 'fahrenheit'],
     ['wind_speed_unit', 'mph'],
     ['precipitation_unit', 'inch'],
+    ['models', FORECAST_MODEL.id],
     ['timezone', MOUNTAIN_TIME_ZONE],
   ]
   return `${baseUrl}?${params.map(([k, v]) => `${k}=${v}`).join('&')}`

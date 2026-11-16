@@ -229,6 +229,23 @@ body { overflow: hidden; overscroll-behavior: none; }
 .widget-empty p { margin: 0 0 18px; }
 .primary-button:disabled { opacity: .6; cursor: default; }
 
+/* ---- Where the numbers come from ---- */
+.source-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -6px 0 6px; }
+.source-row .text-button { flex: none; white-space: nowrap; }
+.source-line { display: flex; align-items: center; gap: 7px; min-width: 0; margin: 0; color: var(--secondary); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.source-line[data-source="model"] { color: var(--amber); font-weight: 550; }
+.warning-glyph { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.beacon-warning { width: 12px; height: 12px; margin-right: 3px; vertical-align: -1px; color: var(--amber); }
+.wind-note { margin: 1px 0 0; color: var(--secondary); font-size: .76rem; }
+.hours-legend { margin: 2px 0 8px; }
+
+.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: #0000006b; overflow-y: auto; }
+.modal { width: 100%; max-width: 420px; padding: 24px; box-shadow: 0 14px 44px #00000038; }
+.modal-warning { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--amber); font-size: 1rem; font-weight: 600; }
+.modal h2 { margin: 0 0 12px; font-size: 1.2rem; font-weight: 620; letter-spacing: -.4px; line-height: 1.2; }
+.modal-body p { margin: 0 0 12px; font-size: .94rem; line-height: 1.5; }
+.modal-close { width: 100%; margin-top: 6px; }
+
 /* ---- Bottom sheet (below 1100px) ---- */
 .sheet {
   position: fixed;

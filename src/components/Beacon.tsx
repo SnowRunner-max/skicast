@@ -1,10 +1,12 @@
-import type { Beacon as BeaconDef, BeaconForecast } from '../types'
+import type { Beacon as BeaconDef } from '../types'
+import type { Current } from '../lib/current'
 import { bandForGust, compassWord, mph } from '../lib/wind'
 import { windArrowAngle } from './WindArrow'
+import { WarningGlyph } from './WarningGlyph'
 
 interface Props {
   beacon: BeaconDef
-  forecast: BeaconForecast | null
+  current: Current | null
   selected: boolean
   /** Screen position of the station, in pixels. */
   x: number
@@ -13,11 +15,13 @@ interface Props {
 }
 
 /** A forecast point on the map: a band-colored dot holding the wind arrow, with the gust in mph beside it. */
-export function Beacon({ beacon, forecast, selected, x, y, onSelect }: Props) {
-  const now = forecast?.now
+export function Beacon({ beacon, current, selected, x, y, onSelect }: Props) {
+  const now = current
   const band = now ? bandForGust(now.gustMph) : null
+  // The number on the map is the gust, so the warning follows the gust's source, not the point's.
+  const modelOnly = now !== null && now.status !== 'pending' && now.sources.gust === 'model'
   const label = now
-    ? `${beacon.name}, gusts ${mph(now.gustMph)} mph from the ${compassWord(now.dirDeg)}`
+    ? `${beacon.name}, gusts ${mph(now.gustMph)} mph from the ${compassWord(now.dirDeg)}${modelOnly ? ', not from a weather station' : ''}`
     : `${beacon.name}, forecast not loaded`
 
   return (
@@ -47,7 +51,10 @@ export function Beacon({ beacon, forecast, selected, x, y, onSelect }: Props) {
           {now ? mph(now.gustMph) : '–'}
           <span className="beacon-unit"> mph</span>
         </span>
-        <span className="beacon-name">{beacon.shortName}</span>
+        <span className="beacon-name">
+          {modelOnly && <WarningGlyph className="beacon-warning" />}
+          {beacon.shortName}
+        </span>
       </span>
     </button>
   )
