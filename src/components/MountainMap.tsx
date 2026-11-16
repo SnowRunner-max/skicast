@@ -38,8 +38,8 @@ const StaticLayer = memo(function StaticLayer() {
   return (
     <>
       <g className="map-contours">
-        {MAP.contours.map((d, i) => (
-          <path key={i} d={d} />
+        {MAP.contours.map((contour, i) => (
+          <path key={i} d={contour.d} data-index={contour.index || undefined} />
         ))}
       </g>
       <g className="map-lifts">

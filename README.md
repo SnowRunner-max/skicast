@@ -33,7 +33,7 @@ The map is drawn from OpenStreetMap data, not from Mammoth's trail map (that art
 1. `map:fetch` pulls every `aerialway` in the ski area from the Overpass API (falling back to the main OSM API when Overpass is down) and saves named chairlifts and gondolas to `src/data/mammoth-lifts.geojson`.
 2. Review that file's diff against the current official trail map: lift names, which lifts exist, where they start and end. Fix mistakes in OSM itself, or in the `REVIEW` table at the top of the script.
 3. `map:build` projects the GeoJSON into SVG paths in `src/data/mapPaths.ts`, rotated so 201° (south-south-west) is up. That is the trail-map view from town: lodges along the bottom, summit at the top.
-4. `map:terrain` samples a grid of USGS 3DEP elevations (public domain) into `src/data/mammoth-terrain.json`; the build turns it into faint contour lines.
+4. `map:terrain` samples a 30 m grid of USGS 3DEP elevations (public domain) into `src/data/mammoth-terrain.json`; the build turns it into faint contour lines every 40 m, with each fifth line (200 m) a touch stronger so the summit, ridges and bowls read at a glance.
 
 The app and the script share `src/lib/projection.ts`, and each beacon takes its coordinates from its station's OSM node, so a beacon always sits on its station.
 
@@ -49,7 +49,7 @@ Because the map is rotated, wind arrows are drawn in the map's frame: an arrow s
 | Info text (the three wordings) | `src/components/DataInfo.tsx` |
 | Which value comes from the station and which from the model | `src/lib/current.ts` |
 | Colors and type | `src/apple.css` (Cottonwood tokens), `src/index.css` |
-| Map rotation, which lifts are drawn | top of `scripts/build-map.ts` |
+| Map rotation, which lifts are drawn, contour interval and detail | top of `scripts/build-map.ts` |
 
 ## Things to know
 

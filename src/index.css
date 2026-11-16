@@ -72,6 +72,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 .map:active { cursor: grabbing; }
 .map-svg { position: absolute; inset: 0; }
 .map-contours path { fill: none; stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.map-contours path[data-index] { stroke: color-mix(in srgb, var(--line), var(--secondary) 22%); }
 .map-lifts path {
   fill: none;
   stroke: var(--secondary);
