@@ -1,0 +1,90 @@
+/*
+ * Cottonwood tokens and base rules, copied from Ev-made-easy (src/apple.css,
+ * PR #25). Token names and values are unchanged; only the wind tokens at the
+ * end of each block are new. Dark values apply under the `.dark` class.
+ *
+ * One deliberate departure: Cottonwood draws icon buttons as circles and the
+ * primary button as a 24px pill. Skicast uses its 12-14px control radius for
+ * both, so nothing on screen is pill-shaped except dots.
+ */
+:root {
+  color-scheme: light;
+  font-size: 17px;
+  --bg: #f5f5f7;
+  --surface: #fff;
+  --text: #1d1d1f;
+  --secondary: #636368;
+  --line: #e5e5ea;
+  --control: #efeff3;
+  --blue: #0071e3;
+  --green: #247b40;
+  --green-fill: #34c759;
+  --danger: #c9372c;
+  /* Skicast additions. Cottonwood keeps green, amber and red for severity; here that means wind band, and only that. */
+  --amber: #9c5c00;
+  --wind-calm: var(--green);
+  --wind-windy: var(--amber);
+  --wind-strong: var(--danger);
+}
+.dark {
+  color-scheme: dark;
+  --bg: #18181a;
+  --surface: #242426;
+  --text: #f5f5f7;
+  --secondary: #b3b3ba;
+  --line: #3b3b40;
+  --control: #333337;
+  --blue: #64acff;
+  --green: #79da94;
+  --green-fill: #30d158;
+  --danger: #ff6b5e;
+  --amber: #ffd088;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  font-size: 1rem;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font: inherit; }
+button, input, select, a { -webkit-tap-highlight-color: transparent; }
+button, a { touch-action: manipulation; }
+button { color: inherit; cursor: pointer; }
+a { color: inherit; text-decoration: none; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid #007aff90;
+  outline-offset: 4px;
+}
+
+.card { background: var(--surface); border: 1px solid #e5e5ea80; border-radius: 24px; }
+.dark .card { border-color: #38383c; }
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+}
+.icon-button svg { width: 22px; height: 22px; }
+.primary-button {
+  border: 0;
+  border-radius: 14px;
+  min-height: 48px;
+  padding: 10px 28px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+}
+.dark .primary-button { color: #0b1a2c; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

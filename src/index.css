@@ -1,0 +1,290 @@
+@import "tailwindcss";
+
+@theme {
+  /* Cottonwood tokens live in src/apple.css; Tailwind utilities (bg-surface,
+     text-fg, text-muted, border-line, ...) read them so both stay in sync. */
+  --color-page:    var(--bg);
+  --color-surface: var(--surface);
+  --color-control: var(--control);
+  --color-line:    var(--line);
+  --color-fg:      var(--text);
+  --color-muted:   var(--secondary);
+  --color-accent:  var(--blue);
+  --color-danger:  var(--danger);
+
+  /* Wind bands (see src/lib/wind.ts). Green, amber and red mean wind and nothing else. */
+  --color-calm:   var(--wind-calm);
+  --color-windy:  var(--wind-windy);
+  --color-strong: var(--wind-strong);
+}
+
+html, body, #root { height: 100%; }
+/* One screen, no page scroll: the map pans and the widget scrolls inside itself. */
+body { overflow: hidden; overscroll-behavior: none; }
+
+[data-band="calm"]   { --wind: var(--wind-calm); }
+[data-band="windy"]  { --wind: var(--wind-windy); }
+[data-band="strong"] { --wind: var(--wind-strong); }
+
+/* ---- Shell ---- */
+.app { height: 100dvh; display: flex; flex-direction: column; }
+.toolbar {
+  flex: none;
+  height: 56px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 0 8px 0 18px;
+  padding-top: env(safe-area-inset-top);
+  box-sizing: content-box;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+.toolbar-brand { display: flex; flex-direction: column; min-width: 0; }
+.toolbar-brand h1 { font-size: 1.18rem; font-weight: 650; letter-spacing: -.6px; line-height: 1.15; margin: 0; }
+.toolbar-brand p { color: var(--secondary); font-size: .76rem; line-height: 1.2; margin: 0; white-space: nowrap; }
+.toolbar-actions { display: flex; align-items: center; gap: 6px; }
+.toolbar-status { color: var(--secondary); font-size: .82rem; margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.toolbar .icon-button { border: 0; background: none; }
+.icon-button svg, .wind-arrow, .text-button svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.layout { flex: 1; min-height: 0; position: relative; }
+.map-frame { position: absolute; inset: 0; }
+
+/* ---- Map ---- */
+.map {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+.map:active { cursor: grabbing; }
+.map-svg { position: absolute; inset: 0; }
+.map-contours path { fill: none; stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.map-lifts path {
+  fill: none;
+  stroke: var(--secondary);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.map-lifts path[data-kind="gondola"] { stroke-width: 2.8; }
+.map-terminals circle { fill: var(--bg); stroke: var(--secondary); stroke-width: 1.4; }
+.map-labels text {
+  font-size: 11.5px;
+  font-weight: 500;
+  fill: var(--secondary);
+  stroke: var(--bg);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.map-beacons { position: absolute; inset: 0; pointer-events: none; }
+.beacon {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+.beacon[data-band="none"] { --wind: var(--control); }
+.beacon:focus-visible { outline-offset: 0; }
+.beacon-mark { position: absolute; inset: 0; overflow: visible; }
+.beacon-dot { fill: var(--wind); stroke: var(--bg); stroke-width: 2; }
+.beacon[data-band="none"] .beacon-dot { stroke: var(--secondary); stroke-width: 1.5; }
+.beacon-arrow { fill: none; stroke: var(--bg); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.beacon-ring { fill: none; stroke: var(--blue); stroke-width: 2.5; }
+.beacon-label {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.12;
+  white-space: nowrap;
+  /* A halo in the map colour keeps the text readable over lift lines. */
+  text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 1.5px 0 0 var(--bg), -1.5px 0 0 var(--bg), 0 1.5px 0 var(--bg), 0 -1.5px 0 var(--bg);
+}
+.beacon[data-side="right"] .beacon-label { left: 50%; top: 50%; margin-left: 21px; transform: translateY(-50%); align-items: flex-start; }
+.beacon[data-side="left"] .beacon-label { right: 50%; top: 50%; margin-right: 21px; transform: translateY(-50%); align-items: flex-end; }
+.beacon[data-side="below"] .beacon-label { left: 50%; top: 50%; margin-top: 19px; transform: translateX(-50%); align-items: center; }
+.beacon-gust { font-size: 1rem; font-weight: 650; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.beacon-unit { font-size: .72rem; font-weight: 500; letter-spacing: 0; color: var(--secondary); }
+.beacon-name { font-size: .72rem; font-weight: 500; color: var(--secondary); }
+.beacon[aria-pressed="true"] .beacon-name { color: var(--text); font-weight: 600; }
+
+.map-north {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  color: var(--secondary);
+  font-size: .72rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+.map-north svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.map-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; }
+.map-attribution {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  margin: 0;
+  font-size: .68rem;
+  color: var(--secondary);
+  text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 1px 0 0 var(--bg), -1px 0 0 var(--bg);
+}
+.map-attribution a, .widget-footer a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---- Widget ---- */
+.widget-card { padding: 24px; }
+.widget-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.widget-title h2 { font-size: 1.3rem; font-weight: 620; letter-spacing: -.55px; line-height: 1.2; margin: 0; }
+.widget-title p { color: var(--secondary); font-size: .82rem; margin: 3px 0 0; }
+.widget-title .widget-title-gust { font-size: 1.06rem; font-weight: 600; margin: 2px 0 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.widget-card .widget-title { margin-bottom: 18px; }
+
+.widget-section { border-top: 1px solid var(--line); padding: 15px 0 17px; }
+.section-label { color: var(--secondary); font-size: .82rem; font-weight: 400; margin: 0 0 7px; }
+.weather-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; }
+.weather-row p { margin: 0; }
+.weather-temp-value, .weather-sky-value {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -.4px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.weather-detail { display: block; color: var(--secondary); font-size: .82rem; margin-top: 3px; }
+
+.wind-main { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; }
+.hero {
+  display: flex;
+  align-items: baseline;
+  margin: 0;
+  font-size: 4rem;
+  font-weight: 600;
+  letter-spacing: -4px;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+}
+.hero-unit { margin-left: 10px; font-size: 1.2rem; font-weight: 550; letter-spacing: -.3px; color: var(--secondary); }
+.wind-direction { display: flex; align-items: center; gap: 6px; }
+.wind-from { margin: 0; white-space: nowrap; }
+.wind-from-value { display: block; font-size: 1.06rem; font-weight: 600; white-space: nowrap; }
+.dial { flex: none; }
+.dial-rim { fill: none; stroke: var(--line); stroke-width: 1.5; }
+.dial-tick { fill: none; stroke: var(--secondary); stroke-width: 1.5; stroke-linecap: round; }
+.dial-north { font-size: 10px; font-weight: 600; fill: var(--secondary); text-anchor: middle; dominant-baseline: central; }
+.dial-arrow { fill: none; stroke: var(--text); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.wind-sustained { margin: 4px 0 0; color: var(--secondary); font-size: .88rem; font-variant-numeric: tabular-nums; }
+.band-line { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 1rem; font-weight: 550; color: var(--wind); }
+.band-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+
+.hours-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.hours-key { color: var(--secondary); font-size: .76rem; margin: 0; }
+.hours { display: grid; list-style: none; margin: 4px 0 0; padding: 0; border-radius: 12px; overflow: hidden; }
+.hour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 0 10px;
+  border-top: 3px solid var(--wind);
+  background: color-mix(in srgb, var(--wind) 12%, var(--surface));
+}
+.hour + .hour { border-left: 1px solid var(--surface); }
+.hour-time { color: var(--secondary); font-size: .76rem; white-space: nowrap; }
+.hour-gust { font-size: 1.12rem; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.hour-speed { color: var(--secondary); font-size: .76rem; font-variant-numeric: tabular-nums; }
+.peak-line { margin: 12px 0 0; font-size: .94rem; font-weight: 550; font-variant-numeric: tabular-nums; }
+
+.notice { margin: 0 0 14px; font-size: .88rem; font-weight: 550; }
+.widget-footer { border-top: 1px solid var(--line); padding-top: 6px; color: var(--secondary); font-size: .76rem; line-height: 1.5; }
+.widget-footer p { margin: 0 0 8px; }
+.widget-footer .updated { display: flex; justify-content: space-between; align-items: center; font-size: .82rem; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+.text-button { min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--blue); font-weight: 550; }
+.text-button:disabled { color: var(--secondary); cursor: default; }
+.widget-empty { border-top: 1px solid var(--line); padding: 28px 0 8px; color: var(--secondary); }
+.widget-empty p { margin: 0 0 18px; }
+.primary-button:disabled { opacity: .6; cursor: default; }
+
+/* ---- Bottom sheet (below 1100px) ---- */
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  max-width: 640px;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  box-shadow: 0 -6px 30px #00000014;
+  transition: transform .2s cubic-bezier(.2, .8, .2, 1);
+  will-change: transform;
+}
+.sheet[data-dragging="true"] { transition: none; }
+.sheet-header { height: 84px; padding: 0 20px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.sheet-handle { position: relative; display: block; width: 100%; height: 22px; padding: 0; border: 0; background: none; cursor: grab; }
+/* The visible grabber is small; the tap area is a full 44px. */
+.sheet-handle::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 44px; }
+.sheet-handle span { display: block; width: 38px; height: 5px; margin: 0 auto; border-radius: 3px; background: var(--secondary); opacity: .45; }
+.sheet-handle:focus-visible { outline-offset: -4px; border-radius: 12px; }
+.sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 0 20px calc(18px + env(safe-area-inset-bottom)); }
+
+/* ---- Desktop: map card left, widget card right ---- */
+@media (min-width: 1100px) {
+  .toolbar { height: 72px; padding: 0 40px; }
+  .toolbar-brand { flex-direction: row; align-items: baseline; gap: 10px; }
+  .toolbar-brand h1 { font-size: 1.3rem; }
+  .toolbar-brand p { font-size: .82rem; }
+  .map-controls { top: 12px; right: 12px; flex-direction: column; }
+  .toolbar-actions { gap: 14px; }
+  .toolbar .icon-button { border: 1px solid var(--line); background: var(--surface); }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 26px;
+    width: 100%;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 26px 40px 28px;
+  }
+  .map-frame { position: relative; inset: auto; min-height: 380px; border: 1px solid var(--line); border-radius: 24px; overflow: hidden; }
+  .widget-card { align-self: start; max-height: 100%; overflow-y: auto; }
+}
+
+@media (max-width: 370px) {
+  .hero { font-size: 3.4rem; letter-spacing: -3px; }
+  .sheet-header, .sheet-body { padding-left: 16px; padding-right: 16px; }
+}
+
+@media (forced-colors: active) {
+  .beacon-dot { stroke: CanvasText; }
+  .beacon-ring { stroke: Highlight; }
+  .hour { border: 1px solid CanvasText; }
+}
