@@ -68,6 +68,8 @@ const SHAPES: Record<SkyIconId, ReactNode> = {
   ),
   fog: <path d="M4 8.5h16M3 12.5h18M5 16.5h14M8 20.5h8" />,
   windy: <path d="M3 9h11.5a2.6 2.6 0 1 0-2.6-2.6M3 13h15.4a2.6 2.6 0 1 1-2.6 2.6M3 17h7" />,
+  // A plain dash, the way a missing number is shown: no sky drawn is better than a guessed one.
+  unknown: <path d="M8 12h8" />,
 }
 
 /** The weather as a small line drawing. Decorative: pair it with the words. */

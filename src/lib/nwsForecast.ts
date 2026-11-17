@@ -129,7 +129,8 @@ function forecastHour(h: GridHour, beacon: Beacon): ForecastHour {
     speedMph: h.speedMph,
     gustMph: h.gustMph,
     dirDeg: h.dirDeg,
-    cloudPct: Number.isFinite(h.cloudPct) ? h.cloudPct : 0,
+    // Null, not NaN: the forecast is saved as JSON, which has no NaN.
+    cloudPct: Number.isFinite(h.cloudPct) ? h.cloudPct : null,
     weather: h.weather,
     daylight: isDaylight(h.startMs + HOUR_MS / 2, lat, lon),
   }

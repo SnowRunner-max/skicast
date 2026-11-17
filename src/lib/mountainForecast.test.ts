@@ -44,6 +44,16 @@ describe('skyIcon', () => {
     })
   })
 
+  it('never draws an hour without cloud cover as clear', () => {
+    expect(skyIcon({ ...day, cloudPct: null }, 5)).toEqual({ icon: 'unknown', sky: 'Sky not forecast' })
+    expect(skyIcon({ ...day, cloudPct: null }, 30)).toEqual({ icon: 'windy', sky: 'Windy' })
+    // What is falling is still known, and still drawn.
+    expect(skyIcon({ ...day, cloudPct: null, weather: w('snow', 'heavy') }, 5)).toEqual({
+      icon: 'heavy-snow',
+      sky: 'Heavy snow likely',
+    })
+  })
+
   it('calls strong sustained wind windy when nothing is falling', () => {
     expect(skyIcon(day, 24).icon).toBe('clear-day')
     expect(skyIcon(day, 25)).toEqual({ icon: 'windy', sky: 'Sunny and windy' })
@@ -106,6 +116,16 @@ describe('mountainForecast', () => {
     const m = mountainForecast(forecast, resolveCurrent(forecast, {}), nowMs)
     expect(m.now).toMatchObject({ windMph: 14, windSource: 'model' })
     expect(m.windStation).toBeNull()
+  })
+
+  it('keeps a missing cloud cover unknown through parsing and a save to localStorage', () => {
+    const raw = structuredClone(grid)
+    // NWS leaves the layer's later hours out.
+    raw.properties.skyCover.values = raw.properties.skyCover.values.slice(0, 1)
+    const parsed = beaconForecast(summit, parseGrid(raw, nowMs), new Date(nowMs).toISOString())
+    const saved = JSON.parse(JSON.stringify(parsed)) as typeof parsed
+    expect(saved.next6[0]!.cloudPct).toBeNull()
+    expect(mountainForecast(saved, null, nowMs).next[0]).toMatchObject({ icon: 'unknown', sky: 'Sky not forecast' })
   })
 
   it('shows what there is when the forecast runs out early', () => {
