@@ -1,5 +1,5 @@
-import { FORECAST_MODEL, OBSERVATION_LIVE_MS } from '../config'
-import { modeledFields, type Current } from '../lib/current'
+import { FORECAST_SOURCE, OBSERVATION_LIVE_MS } from '../config'
+import { measuredBy, modeledFields, type Current } from '../lib/current'
 import { agoLabel } from '../lib/time'
 import { WIND_BANDS } from '../lib/wind'
 import type { Beacon } from '../types'
@@ -11,7 +11,10 @@ const BAND_KEY = WIND_BANDS.map((band, i) => {
   return `${band.short.toLowerCase()} ${range}`
 }).join(', ')
 
-const MODEL = FORECAST_MODEL.label
+const MODEL = `the ${FORECAST_SOURCE.name} forecast`
+
+/** The forecast is per 2.5 km grid square, not per point, and riders should know neighbouring beacons can match. */
+const GRID = 'It covers the 2.5 km square around this point, so nearby points can show the same forecast.'
 
 /** "sustained wind and wind direction" from ["sustained wind", "wind direction"]. */
 function list(items: string[]): string {
@@ -32,8 +35,7 @@ export function DataInfo({ beacon, current, now }: { beacon: Beacon; current: Cu
     return (
       <>
         <p>
-          Checking the weather station for this location. Until it answers, current weather and forecast are from{' '}
-          {MODEL}.
+          Checking the weather station for this location. Until it answers, everything shown is from {MODEL}.
         </p>
         {bands}
       </>
@@ -44,8 +46,8 @@ export function DataInfo({ beacon, current, now }: { beacon: Beacon; current: Cu
     return (
       <>
         <p>
-          Real time weather not available for this location. Current weather and forecast are from {MODEL} and are for
-          this specific point. Ridge-top gusts and gusts on lift can run higher than forecast.
+          Real time weather not available for this location. Current weather and the next hours are from {MODEL}.{' '}
+          {GRID} Ridge-top gusts and gusts on lift can run higher than forecast.
         </p>
         {bands}
       </>
@@ -56,21 +58,29 @@ export function DataInfo({ beacon, current, now }: { beacon: Beacon; current: Cu
   const fresh = observedAt !== null && now - Date.parse(observedAt) <= OBSERVATION_LIVE_MS
   // Sky, cloud cover and precipitation are never measured at these stations.
   const notMeasured = [...modeledFields(current), 'sky', 'cloud cover', 'precipitation']
+  const label = (s: { name: string; id: string }) => `${s.name} (${s.id})`
+  const several = current.stations.length > 1
+  const measuredAt = several
+    ? `Measured at ${current.stations.length === 2 ? 'two' : current.stations.length} stations, reported through the National Weather Service: ${measuredBy(
+        current,
+      )
+        .map(([station, fields]) => `${list(fields)} at ${label(station)}`)
+        .join(', ')}.`
+    : `Measured at ${label(current.stations[0] ?? beacon.weatherStation)}, reported through the National Weather Service.`
   return (
     <>
       <p>
         {fresh
           ? 'Current weather is real time.'
           : `Current weather is the station's latest reading, taken ${observedAt ? agoLabel(observedAt, now) : 'a while ago'}.`}{' '}
-        Forecast is from {MODEL} and is for this specific point. Ridge-top gusts and gusts on lift can run higher than
-        forecast.
+        The forecast is from the {FORECAST_SOURCE.name}. {GRID} Ridge-top gusts and gusts on lift can run higher than forecast.
       </p>
       <p>
-        Measured at {beacon.weatherStation?.name} ({beacon.weatherStation?.id}), reported through the National Weather
-        Service.{current.sources.gust === 'station' && ' Gusts are the latest the station has sent, which can lag the wind.'}
+        {measuredAt}
+        {current.sources.gust === 'station' && ' Gusts are the latest the station has sent, which can lag the wind.'}
       </p>
       <p>
-        Not measured at this station, so from {MODEL}: {list(notMeasured)}.
+        Not measured at {several ? 'these stations' : 'this station'}, so from {MODEL}: {list(notMeasured)}.
       </p>
       {bands}
     </>

@@ -2,11 +2,11 @@
 
 Wind and weather on Mammoth Mountain, read straight off the lift map.
 
-One screen: a simplified lift map with a point (a "beacon") at Summit, McCoy Station, Main Lodge, Canyon Lodge and Eagle Lodge. Each beacon shows its gust speed and wind direction on the map. Tap one for current weather, current wind and wind for the next six hours.
+One screen: a simplified lift map with a point (a "beacon") at eight of Mammoth's weather stations: Summit, McCoy Station, Top of Broadway, Top of Gold Rush, Cloud Nine, Sesame, Top of Eagle and Canyon Lodge. Each beacon shows its gust speed and wind direction on the map. Tap one for current weather, current wind and wind for the next six hours.
 
-Current values are measured where a beacon has a weather station, and come from the forecast model where it does not. The next six hours are always the model.
+Current values are measured where the station has a fresh reading, and come from the forecast model where it does not. The next six hours are always the model.
 
-No backend. The browser asks [Open-Meteo](https://open-meteo.com/) for the forecast (one request for all five beacons) and the National Weather Service's public API for station readings (one request per station).
+No backend, and every number comes from the National Weather Service's public API (free, keyless, public domain, open to cross-origin requests): the forecast (one request per NWS grid square; the eight beacons sit in four) and station readings (one request per station, for all 20 Mammoth stations, including the ones not drawn on the map).
 
 ## Run it
 
@@ -44,8 +44,10 @@ Because the map is rotated, wind arrows are drawn in the map's frame: an arrow s
 | To change | Edit |
 | --- | --- |
 | Wind band cutoffs and labels | `src/lib/wind.ts` |
-| Beacons (lift station, weather station, elevation, label side) | `src/data/beacons.ts` |
-| Forecast model, hosts, cache times, how old a reading may be | `src/config.ts` |
+| Beacons (which station, name, label side) | `src/data/beacons.ts` |
+| Every Mammoth weather station (id, coordinates, elevation) | `src/data/stations.ts` |
+| Forecast source, hosts, cache times, how old a reading may be | `src/config.ts` |
+| Which NWS grid square each beacon's forecast comes from | `forecastCell` in `src/data/beacons.ts` |
 | Info text (the three wordings) | `src/components/DataInfo.tsx` |
 | Which value comes from the station and which from the model | `src/lib/current.ts` |
 | Colors and type | `src/apple.css` (Cottonwood tokens), `src/index.css` |
@@ -54,15 +56,15 @@ Because the map is rotated, wind arrows are drawn in the map's frame: an arrow s
 ## Things to know
 
 - **Measured first, forecast as the fallback, value by value.** `resolveCurrent` takes each of temperature, sustained wind, gust and direction from the station when it has a fresh reading, and from the model when it does not. Sky, cloud cover and precipitation are never measured at these stations, so they are always the model's. A point with no fresh station data gets a warning icon and "Not from weather station."
-- **Which beacons have a station.** Summit (`MTH03`), McCoy (`MTH20`), Canyon (`MTH19`) and Eagle (`MTH17`) each have a Mammoth station at the spot. Main Lodge has none: the nearest, Sesame (`MTH05`), is 1,200 ft away and 125 ft higher, so Main stays on the model. Set `weatherStation` in `beacons.ts` to change that.
-- **Stations are patchy.** Top Station reports temperature and gusts but no sustained wind or direction; Eagle's station reports temperature only. Each missing value falls back to the model on its own, and the screen says which.
+- **Every station is fetched; eight are drawn.** `src/data/stations.ts` lists all 20 Mammoth stations on the NWS feed, and `useObservations` reads every one of them (keyed by station id) so the data is on hand for interpolating between stations later. `src/data/beacons.ts` picks the eight drawn on the map; each beacon sits at its station's coordinates. Add or swap a beacon by pointing `weatherStation` at another station there.
+- **A beacon can borrow from a neighbour.** `backupStations` lists stations that fill in, value by value, what the main station does not send. Summit uses it: Top Station (`MTH03`) has no sustained wind or direction, so they come from Gondola 2 Tower 10 (`MTH12`), about 220 ft away and 50 ft lower. The screen names both stations and the info dialog says which value came from which.
+- **Stations are patchy.** Top Station (`MTH03`) reports temperature and gusts but no sustained wind or direction; Top of Broadway, Top of Gold Rush and Cloud Nine report wind but no temperature. The comment on each line of `stations.ts` says what that station sent when it was surveyed. Each missing value falls back to the model on its own, and the screen says which.
 - **Station gusts lag.** The NWS feed only publishes a gust after quality screening, so it is usually 1 to 2 hours old. Gusts up to 3 hours old are used and the screen shows their age; everything else must be under 2 hours old. The feed itself also runs up to an hour behind at times, so every reading is shown with its age rather than called live.
-- **The forecast is NOAA's National Blend of Models (NBM)**, pinned in `config.ts` so the name on screen is the model in use. It is a 2.5 km grid, updated hourly, with gusts calibrated against recent observations. It replaced NOAA HRRR, which Open-Meteo stops serving on 2026-11-30. Neither is fine enough to resolve the summit ridge, so expect model gusts to differ from the stations; `reports/High resolution ski wind models.md` has the research and the plan for per-station correction.
-- **Elevation corrects temperature, not wind.** Each beacon's elevation is sent to Open-Meteo, which adjusts temperature for it. Wind and gusts come back as the model grid cell's values whatever elevation is sent.
+- **The forecast is the National Weather Service's gridded forecast (NDFD)**, read from `api.weather.gov/gridpoints/REV/x,y`. The Reno office's forecasters start from NOAA's National Blend of Models and edit it, on a 2.5 km grid. Squares are that coarse, so Summit, Gold Rush and Cloud Nine share one forecast, as do McCoy, Broadway and Sesame. Values come in blocks (often three hours for wind, six for precipitation), so the hourly strip can repeat a number. It is not fine enough to resolve the summit ridge, so expect forecast gusts to differ from the stations; `reports/High resolution ski wind models.md` has the research and the plan for per-station correction. On 16 November 2026 it was within about 9 mph of measured gusts across the eight beacons, against about 11 for the National Blend via Open-Meteo, which it replaced so the site can carry ads (Open-Meteo's free tier is non-commercial).
+- **Elevation corrects temperature, not wind.** A grid square's forecast is for its average ground height, which can be hundreds of metres off the station's (Top Station is about 360 m above its square). `beaconForecast` moves the temperature to the station's height at the standard 6.5 °C per km and works out feels-like from that. Wind is left as the square's.
 - **Wind bands are rough guides** (calm under 20 mph gusts, windy 20 to 39, strong 40 and up), not Mammoth's rules for running lifts.
-- **Open-Meteo's free tier is for non-commercial use.** If Skicast ever makes money, point `OPEN_METEO_BASE_URL` at the paid host and add the key.
 - **Caching.** A forecast is reused for 10 minutes and station readings for 5 (NWS caches them for 5). The last one is kept in `localStorage` so beacons show immediately on reload, and stays on screen (labelled with its age) if a refresh fails.
 
 ## Credits
 
-Lift data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Elevation data from the USGS 3D Elevation Program. Forecast by [Open-Meteo](https://open-meteo.com/) (CC BY 4.0). Station observations from the [National Weather Service](https://www.weather.gov/) API. Design tokens from the Cottonwood design system in Ev-made-easy.
+Lift data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright) (ODbL). Elevation data from the USGS 3D Elevation Program. Forecast and station observations from the [National Weather Service](https://www.weather.gov/) API (public domain). Design tokens from the Cottonwood design system in Ev-made-easy.

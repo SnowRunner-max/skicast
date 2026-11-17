@@ -1,4 +1,5 @@
 import { BEACONS } from '../data/beacons'
+import { STATIONS } from '../data/stations'
 import { fetchObservations, parseObservations } from './nws'
 import { nwsResponse } from './__fixtures__/nws'
 
@@ -83,22 +84,33 @@ describe('parseObservations', () => {
 describe('fetchObservations', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('asks only for beacons that have a station, and one failing station leaves the rest alone', async () => {
+  it('asks every station, keyed by station id, and one failing station leaves the rest alone', async () => {
     const now = Date.now()
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       if (String(url).includes('/stations/MTH19/')) return new Response('down', { status: 503 })
+      if (String(url).includes('/stations/MTH24/')) return new Response(JSON.stringify({ features: [] }))
       return new Response(JSON.stringify(nwsResponse(now, [{ minAgo: 5, tempC: -4, speedKmh: 10, dirDeg: 250 }])))
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await fetchObservations(BEACONS)
+    const result = await fetchObservations(STATIONS)
 
     const urls = fetchMock.mock.calls.map((c) => String(c[0]))
-    expect(urls).toHaveLength(4)
+    expect(urls).toHaveLength(STATIONS.length)
     expect(urls.every((u) => u.startsWith('https://api.weather.gov/stations/MTH'))).toBe(true)
-    expect(result.main).toBeNull() // no station at Main Lodge
-    expect(result.canyon).toBeNull() // its station failed
-    expect(result.summit?.stationId).toBe('MTH03')
-    expect(result.mccoy?.speedMph).toBeCloseTo(6.2, 1)
+    expect(Object.keys(result).sort()).toEqual(STATIONS.map((s) => s.id).sort())
+    expect(result.MTH19).toBeNull() // it failed
+    expect(result.MTH24).toBeNull() // it sent nothing
+    expect(result.MTH03?.stationId).toBe('MTH03')
+    expect(result.MTH02?.speedMph).toBeCloseTo(6.2, 1) // fetched though no beacon shows it
+  })
+})
+
+describe('stations', () => {
+  it('lists every Mammoth station once, including every one a beacon uses', () => {
+    const ids = STATIONS.map((s) => s.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids).toHaveLength(20)
+    for (const beacon of BEACONS) expect(ids).toContain(beacon.weatherStation.id)
   })
 })

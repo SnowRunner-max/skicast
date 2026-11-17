@@ -1,10 +1,10 @@
 import type { Current } from '../lib/current'
-import { skyLabel } from '../lib/sky'
 
 function precipText(inches: number): string {
   if (inches <= 0) return 'No precipitation'
   if (inches < 0.01) return 'Trace of precipitation'
-  return `${inches.toFixed(2)} in of precipitation this hour`
+  // NWS forecasts precipitation in blocks of up to six hours, so this is that block's hourly average.
+  return `About ${inches.toFixed(2)} in of precipitation an hour`
 }
 
 /**
@@ -13,7 +13,7 @@ function precipText(inches: number): string {
  * clouds are never measured there, so they are always the forecast's.
  */
 export function NowWeather({ current }: { current: Current }) {
-  const { tempF, feelsF, code, precipIn, cloudPct, sources, status } = current
+  const { tempF, feelsF, sky, precipIn, cloudPct, sources, status } = current
   const mixed = status === 'station'
   return (
     <section className="widget-section weather" aria-labelledby="weather-heading">
@@ -27,7 +27,7 @@ export function NowWeather({ current }: { current: Current }) {
           {mixed && sources.temp === 'model' && <span className="weather-detail">Forecast</span>}
         </p>
         <p className="weather-sky">
-          <span className="weather-sky-value">{skyLabel(code)}</span>
+          <span className="weather-sky-value">{sky}</span>
           <span className="weather-detail">
             {precipText(precipIn)}, {Math.round(cloudPct)}% cloud cover
           </span>

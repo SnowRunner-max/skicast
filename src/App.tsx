@@ -31,7 +31,7 @@ export default function App() {
   const currents = useMemo(() => {
     if (!forecasts) return null
     return Object.fromEntries(
-      forecasts.map((f) => [f.beacon.id, resolveCurrent(f, observations?.[f.beacon.id])]),
+      forecasts.map((f) => [f.beacon.id, resolveCurrent(f, observations)]),
     ) as Record<string, Current>
   }, [forecasts, observations])
   const onRefresh = useCallback(() => {

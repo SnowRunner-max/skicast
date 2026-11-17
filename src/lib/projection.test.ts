@@ -1,6 +1,6 @@
 import { fromViewMetres, project, screenAngle, toViewMetres, type Projection } from './projection'
 import { MAP } from '../data/mapPaths'
-import { BEACONS, stationFor } from '../data/beacons'
+import { BEACONS, beaconPoint } from '../data/beacons'
 
 const northUp: Projection = { lat0: 37.64, lon0: -119.02, bearingDeg: 0, scale: 1, tx: 0, ty: 0 }
 
@@ -39,30 +39,30 @@ describe('projection', () => {
 })
 
 describe('generated map', () => {
-  it('places every beacon exactly on its station', () => {
+  it('places every beacon on its weather station, inside the map', () => {
     for (const beacon of BEACONS) {
-      const station = stationFor(beacon)
-      const p = project(MAP.projection, station.lat, station.lon)
-      expect(p.x).toBeCloseTo(station.x, 0)
-      expect(p.y).toBeCloseTo(station.y, 0)
+      const p = beaconPoint(beacon)
+      const expected = project(MAP.projection, beacon.weatherStation.lat, beacon.weatherStation.lon)
+      expect(p).toEqual(expected)
+      expect(p.x, beacon.id).toBeGreaterThan(0)
+      expect(p.x, beacon.id).toBeLessThan(MAP.viewBox.width)
+      expect(p.y, beacon.id).toBeGreaterThan(0)
+      expect(p.y, beacon.id).toBeLessThan(MAP.viewBox.height)
     }
   })
 
-  it('shows the trail-map view: summit above the base lodges, Eagle left of Main', () => {
-    const at = (id: string) => stationFor(BEACONS.find((b) => b.id === id)!)
-    const [summit, mccoy, main, canyon, eagle] = ['summit', 'mccoy', 'main', 'canyon', 'eagle'].map(at) as [
-      ReturnType<typeof at>,
+  it('shows the trail-map view: summit above McCoy above Canyon, Canyon left of McCoy left of Sesame', () => {
+    const at = (id: string) => beaconPoint(BEACONS.find((b) => b.id === id)!)
+    const [summit, mccoy, canyon, sesame] = ['summit', 'mccoy', 'canyon', 'sesame'].map(at) as [
       ReturnType<typeof at>,
       ReturnType<typeof at>,
       ReturnType<typeof at>,
       ReturnType<typeof at>,
     ]
     expect(summit.y).toBeLessThan(mccoy.y)
-    expect(mccoy.y).toBeLessThan(main.y)
-    expect(eagle.x).toBeLessThan(canyon.x)
-    expect(canyon.x).toBeLessThan(main.x)
-    // The three lodges sit on a roughly level line.
-    expect(Math.abs(eagle.y - main.y)).toBeLessThan(MAP.viewBox.height * 0.1)
+    expect(mccoy.y).toBeLessThan(canyon.y)
+    expect(canyon.x).toBeLessThan(mccoy.x)
+    expect(mccoy.x).toBeLessThan(sesame.x)
   })
 
   it('keeps every lift inside the viewBox', () => {

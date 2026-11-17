@@ -1,6 +1,9 @@
-import type { BeaconForecast, Observation } from '../types'
+import type { Beacon, BeaconForecast, Observation, Station } from '../types'
+import type { ObservationMap } from './nws'
 
 export type Source = 'station' | 'model'
+
+type Field = 'temp' | 'speed' | 'gust' | 'dir'
 
 /**
  * What to show for "now" at one beacon. Each value comes from the station when
@@ -14,17 +17,21 @@ export interface Current {
   gustMph: number
   dirDeg: number
   /** Sky, precipitation and cloud cover are not measured at the stations, so these are always the model's. */
-  code: number
+  sky: string
   precipIn: number
   cloudPct: number
-  sources: { temp: Source; speed: Source; gust: Source; dir: Source }
+  sources: Record<Field, Source>
+  /** The station each measured value came from. A beacon with backup stations can mix them. */
+  stationFor: Partial<Record<Field, Station>>
+  /** The stations that supplied at least one value, main station first. */
+  stations: Station[]
   /**
    * station: at least one value is a measurement.
-   * model: nothing is measured here (no station, or it has nothing fresh).
-   * pending: this beacon has a station and its readings have not arrived yet.
+   * model: nothing is measured here (the station has nothing fresh, or failed).
+   * pending: the station's readings have not arrived yet.
    */
   status: 'station' | 'model' | 'pending'
-  /** ISO time of the measurement, when status is "station". */
+  /** ISO time of the measurement, when status is "station". With several stations, the oldest of their readings. */
   observedAt: string | null
   /** ISO time of the measured gust, which can lag `observedAt`; null when the gust is the model's. */
   gustAt: string | null
@@ -37,30 +44,47 @@ export function windChillF(tempF: number, windMph: number): number {
   return 35.74 + 0.6215 * tempF - 35.75 * v + 0.4275 * tempF * v
 }
 
-/**
- * @param observation  The station's reading, null when it has none, or undefined
- *                     while observations are still loading.
- */
-export function resolveCurrent(
-  forecast: BeaconForecast,
-  observation: Observation | null | undefined,
-): Current {
-  const m = forecast.now
-  const o = observation ?? null
-  const pick = (live: number | null | undefined, model: number): [number, Source] =>
-    typeof live === 'number' ? [live, 'station'] : [model, 'model']
+/** The beacon's stations in the order they are read: its own, then its backups. */
+export function beaconStations(beacon: Beacon): Station[] {
+  return [beacon.weatherStation, ...(beacon.backupStations ?? [])]
+}
 
-  const [tempF, temp] = pick(o?.tempF, m.tempF)
-  const [speedMph, speed] = pick(o?.speedMph, m.speedMph)
-  const [gustRaw, gust] = pick(o?.gustMph, m.gustMph)
-  const [dirDeg, dir] = pick(o?.dirDeg, m.dirDeg)
-  const sources = { temp, speed, gust, dir }
-  const measured = Object.values(sources).includes('station')
+/**
+ * @param observations  Readings by station id, or undefined while they are still loading.
+ */
+export function resolveCurrent(forecast: BeaconForecast, observations: ObservationMap | undefined): Current {
+  const m = forecast.now
+  const readings = beaconStations(forecast.beacon).flatMap((station) => {
+    const o = observations?.[station.id]
+    return o ? [{ station, o }] : []
+  })
+
+  const stationFor: Current['stationFor'] = {}
+  const sources = {} as Record<Field, Source>
+  // Each value from the first station that has it, else the model.
+  const pick = (field: Field, live: (o: Observation) => number | null, model: number): number => {
+    const hit = readings.find(({ o }) => typeof live(o) === 'number')
+    if (!hit) {
+      sources[field] = 'model'
+      return model
+    }
+    sources[field] = 'station'
+    stationFor[field] = hit.station
+    return live(hit.o)!
+  }
+
+  const tempF = pick('temp', (o) => o.tempF, m.tempF)
+  const speedMph = pick('speed', (o) => o.speedMph, m.speedMph)
+  const gustRaw = pick('gust', (o) => o.gustMph, m.gustMph)
+  const dirDeg = pick('dir', (o) => o.dirDeg, m.dirDeg)
+  const used = readings.filter(({ station }) => Object.values(stationFor).includes(station))
+  const measured = used.length > 0
 
   // A measured temperature needs a feels-like of its own: the model's belongs to the model's temperature.
-  const feelsF = temp === 'station' ? windChillF(tempF, speedMph) : m.feelsF
+  const feelsF = sources.temp === 'station' ? windChillF(tempF, speedMph) : m.feelsF
   // Never show a sustained wind above the gust beside it.
-  const gustMph = Math.max(gustRaw, speed === gust ? speedMph : 0)
+  const gustMph = Math.max(gustRaw, sources.speed === sources.gust ? speedMph : 0)
+  const gustReading = readings.find(({ station }) => station === stationFor.gust)
 
   return {
     tempF,
@@ -68,25 +92,37 @@ export function resolveCurrent(
     speedMph,
     gustMph,
     dirDeg,
-    code: m.code,
+    sky: m.sky,
     precipIn: m.precipIn,
     cloudPct: m.cloudPct,
     sources,
-    status: measured ? 'station' : forecast.beacon.weatherStation && observation === undefined ? 'pending' : 'model',
-    observedAt: measured ? (o?.observedAt ?? null) : null,
-    gustAt: gust === 'station' ? (o?.gustAt ?? null) : null,
+    stationFor,
+    stations: used.map(({ station }) => station),
+    status: measured ? 'station' : observations === undefined ? 'pending' : 'model',
+    // Shown as "measured N min ago", so a mix of stations is only as fresh as its oldest reading.
+    observedAt: measured
+      ? used.map(({ o }) => o.observedAt).reduce((a, b) => (Date.parse(a) <= Date.parse(b) ? a : b))
+      : null,
+    gustAt: gustReading?.o.gustAt ?? null,
   }
 }
 
-/** The values a station did not supply, in words, for the info text. */
+const FIELD_NAMES: Record<Field, string> = {
+  temp: 'temperature',
+  speed: 'sustained wind',
+  gust: 'gusts',
+  dir: 'wind direction',
+}
+
+/** The values no station supplied, in words, for the info text. */
 export function modeledFields(current: Current): string[] {
-  const names: Record<keyof Current['sources'], string> = {
-    temp: 'temperature',
-    speed: 'sustained wind',
-    gust: 'gusts',
-    dir: 'wind direction',
-  }
-  return (Object.keys(names) as (keyof Current['sources'])[])
-    .filter((k) => current.sources[k] === 'model')
-    .map((k) => names[k])
+  return (Object.keys(FIELD_NAMES) as Field[]).filter((k) => current.sources[k] === 'model').map((k) => FIELD_NAMES[k])
+}
+
+/** Which values each station supplied, in words, main station first: [[station, ["temperature", "gusts"]], ...]. */
+export function measuredBy(current: Current): [Station, string[]][] {
+  return current.stations.map((station) => [
+    station,
+    (Object.keys(FIELD_NAMES) as Field[]).filter((k) => current.stationFor[k] === station).map((k) => FIELD_NAMES[k]),
+  ])
 }

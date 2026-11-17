@@ -1,10 +1,3 @@
-/**
- * Open-Meteo's free endpoint is for non-commercial use only. If Skicast ever
- * makes money, switch this to the paid host (customer-api.open-meteo.com) and
- * add the API key in src/lib/openMeteo.ts.
- */
-export const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1/forecast'
-
 /** How long a fetched forecast is reused before asking again. */
 export const FORECAST_TTL_MS = 10 * 60 * 1000
 
@@ -12,14 +5,16 @@ export const FORECAST_TTL_MS = 10 * 60 * 1000
 export const MOUNTAIN_TIME_ZONE = 'America/Los_Angeles'
 
 /**
- * The forecast model, named so the on-screen copy is true by construction.
- * NOAA's National Blend of Models (NBM): a 2.5 km grid, updated hourly, whose
- * gusts are already calibrated against recent observations. It replaced HRRR,
- * which Open-Meteo stops serving on 2026-11-30 (and whose 3 km gusts ran about
- * 9 mph low at the summit and 4-10 mph high at the base stations). Pinning it
- * keeps Open-Meteo's "best match" from changing underneath the label.
+ * Where the forecast comes from, named here so the on-screen copy is true by
+ * construction. The National Weather Service's gridded forecast (NDFD): the
+ * Reno office's forecasters start from NOAA's National Blend of Models and
+ * edit it, on a 2.5 km grid. It is public domain, free for any use, and
+ * served from the same keyless, cross-origin API as the station readings.
  */
-export const FORECAST_MODEL = { id: 'ncep_nbm_conus', label: 'NOAA National Blend' } as const
+export const FORECAST_SOURCE = { name: 'National Weather Service', short: 'NWS' } as const
+
+/** Give up on a slow forecast request so the screen can say so and offer a retry. */
+export const FORECAST_TIMEOUT_MS = 10_000
 
 /**
  * Mammoth Mountain's own weather stations report through the National Weather

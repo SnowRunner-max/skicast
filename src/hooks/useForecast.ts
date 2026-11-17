@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FORECAST_TTL_MS } from '../config'
-import { BEACONS, stationFor } from '../data/beacons'
-import { fetchForecast, type ForecastPoint } from '../lib/openMeteo'
+import { BEACONS } from '../data/beacons'
+import { fetchForecast } from '../lib/nwsForecast'
 import type { BeaconForecast } from '../types'
 
-const STORAGE_KEY = 'skicast:forecast:v1'
+// v2: the NWS forecast, with the sky in words rather than a WMO code.
+const STORAGE_KEY = 'skicast:forecast:v2'
 
 /** Past this age a saved forecast's "next 6 hours" are all behind us, so it is dropped. */
 const MAX_SAVED_AGE_MS = 6 * 60 * 60 * 1000
-
-const POINTS: ForecastPoint[] = BEACONS.map((beacon) => {
-  const { lat, lon } = stationFor(beacon)
-  return { beacon, lat, lon }
-})
 
 /** In-memory cache, shared by every mount in this tab. */
 let memory: BeaconForecast[] | null = null
@@ -78,7 +74,7 @@ export function useForecast(): ForecastState {
     const controller = new AbortController()
     inFlight.current = controller
     setLoading(true)
-    fetchForecast(POINTS, controller.signal)
+    fetchForecast(BEACONS, controller.signal)
       .then((result) => {
         memory = result
         save(result)

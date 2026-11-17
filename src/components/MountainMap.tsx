@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { BEACONS, stationFor } from '../data/beacons'
+import { BEACONS, beaconPoint } from '../data/beacons'
 import { MAP, type MapLift } from '../data/mapPaths'
 import { usePanZoom, type Box, type Insets, type View } from '../hooks/usePanZoom'
 import type { Current } from '../lib/current'
@@ -10,7 +10,7 @@ interface Props {
   currents: Record<string, Current> | null
   selectedId: string
   onSelect: (id: string) => void
-  /** Phone layout: frame the five beacons rather than every lift. */
+  /** Phone layout: frame the beacons rather than every lift. */
   compact: boolean
   /** Height in pixels covered by the bottom sheet. */
   bottomInset: number
@@ -22,12 +22,12 @@ const VIEW_BOX: Box = { x: 0, y: 0, width: MAP.viewBox.width, height: MAP.viewBo
 const TRIM = 36
 const LIFTS_BOX: Box = { x: TRIM, y: TRIM, width: VIEW_BOX.width - 2 * TRIM, height: VIEW_BOX.height - 2 * TRIM }
 
-const BEACON_POINTS = BEACONS.map((beacon) => ({ beacon, station: stationFor(beacon) }))
+const BEACON_POINTS = BEACONS.map((beacon) => ({ beacon, point: beaconPoint(beacon) }))
 
-/** The five beacons' bounding box, in map units. */
+/** The beacons' bounding box, in map units. */
 const BEACON_BOX: Box = (() => {
-  const xs = BEACON_POINTS.map((p) => p.station.x)
-  const ys = BEACON_POINTS.map((p) => p.station.y)
+  const xs = BEACON_POINTS.map((p) => p.point.x)
+  const ys = BEACON_POINTS.map((p) => p.point.y)
   const x = Math.min(...xs)
   const y = Math.min(...ys)
   return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y }
@@ -130,10 +130,10 @@ export function MountainMap({ currents, selectedId, onSelect, compact, bottomIns
   const beacons = useMemo(
     () =>
       view
-        ? BEACON_POINTS.map(({ beacon, station }) => ({
+        ? BEACON_POINTS.map(({ beacon, point }) => ({
             beacon,
-            x: station.x * view.k + view.x,
-            y: station.y * view.k + view.y,
+            x: point.x * view.k + view.x,
+            y: point.y * view.k + view.y,
           }))
         : [],
     [view],

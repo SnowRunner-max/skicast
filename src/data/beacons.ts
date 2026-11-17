@@ -1,70 +1,100 @@
 import type { Beacon } from '../types'
-import { MAP, type MapStation } from './mapPaths'
+import { MAP } from './mapPaths'
+import { project, type Point } from '../lib/projection'
+import { stationById } from './stations'
 
 /**
- * Forecast points. Each is pinned to a lift station; its coordinates come from
- * that OSM node in the generated map data, so there is no separate lat/lon list.
+ * The points drawn on the map, each at one of Mammoth's weather stations. The
+ * other stations in stations.ts are fetched too but not drawn.
+ *
+ * Each `forecastCell` is the NWS grid square for the station's coordinates,
+ * looked up in November 2026. If NWS ever redraws its grid, the forecast
+ * request fails loudly; look the stations up again at api.weather.gov/points.
  */
 export const BEACONS: Beacon[] = [
   {
     id: 'summit',
     name: 'Summit',
-    stationOsmId: 96939624,
-    elevationFt: 11053,
     pinnedTo: 'Panorama Gondola top station',
     shortName: 'Summit',
     labelSide: 'right',
-    weatherStation: { id: 'MTH03', name: 'Top Station' },
+    weatherStation: stationById('MTH03'),
+    forecastCell: { office: 'REV', x: 57, y: 17 },
+    // Top Station sends no sustained wind or direction. Gondola 2 Tower 10, about 220 ft away and 50 ft lower,
+    // does, so it fills those in. Its own dot would sit on top of the summit's, so it has no beacon of its own.
+    backupStations: [stationById('MTH12')],
   },
   {
     id: 'mccoy',
     name: 'McCoy Station',
-    stationOsmId: 96939622,
-    elevationFt: 9600,
     pinnedTo: 'Panorama Gondola mid-station',
     shortName: 'McCoy',
     labelSide: 'left',
-    weatherStation: { id: 'MTH20', name: 'McCoy Station' },
+    weatherStation: stationById('MTH20'),
+    forecastCell: { office: 'REV', x: 57, y: 18 },
   },
   {
-    id: 'main',
-    name: 'Main Lodge',
-    stationOsmId: 96939620,
-    elevationFt: 8900,
-    pinnedTo: 'Panorama Gondola bottom station',
-    shortName: 'Main',
+    id: 'broadway',
+    name: 'Top of Broadway',
+    pinnedTo: 'Top of Broadway Express (Chair 1)',
+    shortName: 'Broadway',
+    labelSide: 'right',
+    weatherStation: stationById('MTH01'),
+    forecastCell: { office: 'REV', x: 57, y: 18 },
+  },
+  {
+    id: 'goldrush',
+    name: 'Top of Gold Rush',
+    pinnedTo: 'Tower 20, at the top of Gold Rush Express (Chair 10)',
+    shortName: 'Gold Rush',
+    labelSide: 'left',
+    weatherStation: stationById('MTH08'),
+    forecastCell: { office: 'REV', x: 57, y: 17 },
+  },
+  {
+    id: 'cloudnine',
+    name: 'Cloud Nine',
+    pinnedTo: 'Tower 11, midway up Cloud Nine Express (Chair 9)',
+    shortName: 'Cloud Nine',
+    labelSide: 'left',
+    weatherStation: stationById('MTH15'),
+    forecastCell: { office: 'REV', x: 57, y: 17 },
+  },
+  {
+    id: 'sesame',
+    name: 'Sesame',
+    pinnedTo: 'Beside Main Lodge',
+    shortName: 'Sesame',
+    // Below, not beside: it is the right-most beacon, and a side label runs off a phone screen.
     labelSide: 'below',
-    // No station here. Sesame (MTH05) is the nearest, 1,200 ft away and 125 ft higher, so it is not used.
-    weatherStation: null,
+    weatherStation: stationById('MTH05'),
+    forecastCell: { office: 'REV', x: 57, y: 18 },
+  },
+  {
+    id: 'eagletop',
+    name: 'Top of Eagle',
+    pinnedTo: 'Top of Eagle Express (Chair 15)',
+    shortName: 'Top of Eagle',
+    // Below, not beside: it is the left-most beacon, and a side label runs off a phone screen.
+    labelSide: 'below',
+    weatherStation: stationById('MTH22'),
+    forecastCell: { office: 'REV', x: 58, y: 17 },
   },
   {
     id: 'canyon',
     name: 'Canyon Lodge',
-    stationOsmId: 11224268511,
-    elevationFt: 8350,
     pinnedTo: 'Base of Canyon Express',
     shortName: 'Canyon',
     labelSide: 'left',
-    weatherStation: { id: 'MTH19', name: 'Canyon Lodge' },
-  },
-  {
-    id: 'eagle',
-    name: 'Eagle Lodge',
-    stationOsmId: 369251388,
-    elevationFt: 8100,
-    pinnedTo: 'Base of Eagle Express',
-    shortName: 'Eagle',
-    labelSide: 'left',
-    weatherStation: { id: 'MTH17', name: 'Bottom of Chair 15' },
+    weatherStation: stationById('MTH19'),
+    forecastCell: { office: 'REV', x: 58, y: 18 },
   },
 ]
 
 export const DEFAULT_BEACON_ID = 'summit'
 
-export function stationFor(beacon: Beacon): MapStation {
-  const station = MAP.stations.find((s) => s.osmId === beacon.stationOsmId)
-  if (!station) {
-    throw new Error(`${beacon.name}: OSM node ${beacon.stationOsmId} is not in the map data. Re-run npm run map:build.`)
-  }
-  return station
+/** Where a beacon sits on the map, in map units: on its weather station. */
+export function beaconPoint(beacon: Beacon): Point {
+  const { lat, lon } = beacon.weatherStation
+  return project(MAP.projection, lat, lon)
 }

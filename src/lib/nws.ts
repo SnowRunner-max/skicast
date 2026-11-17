@@ -5,7 +5,7 @@ import {
   OBSERVATION_MAX_AGE_MS,
   OBSERVATION_TIMEOUT_MS,
 } from '../config'
-import type { Beacon, Observation } from '../types'
+import type { Observation, Station } from '../types'
 
 /** One reading as the NWS API sends it, trimmed to what Skicast uses. */
 interface NwsValue {
@@ -112,40 +112,48 @@ export function parseObservations(raw: unknown, stationId: string, nowMs: number
   }
 }
 
-async function fetchStation(stationId: string, nowMs: number, signal?: AbortSignal): Promise<Observation | null> {
+/**
+ * GETs JSON from the NWS API, giving up after `timeoutMs` so one slow request
+ * never holds up the screen. Also stops when `signal` aborts.
+ */
+export async function fetchJson(url: string, timeoutMs: number, signal?: AbortSignal): Promise<unknown> {
   const timeout = new AbortController()
-  const timer = setTimeout(() => timeout.abort(), OBSERVATION_TIMEOUT_MS)
+  const timer = setTimeout(() => timeout.abort(), timeoutMs)
   const onAbort = () => timeout.abort()
   signal?.addEventListener('abort', onAbort)
   try {
-    const res = await fetch(buildObservationsUrl(stationId), {
-      signal: timeout.signal,
-      headers: { Accept: 'application/geo+json' },
-    })
-    if (!res.ok) throw new Error(`NWS answered ${res.status} for ${stationId}`)
-    return parseObservations(await res.json(), stationId, nowMs)
+    const res = await fetch(url, { signal: timeout.signal, headers: { Accept: 'application/geo+json' } })
+    if (!res.ok) throw new Error(`NWS answered ${res.status} for ${url.replace(NWS_BASE_URL, '')}`)
+    return await res.json()
   } finally {
     clearTimeout(timer)
     signal?.removeEventListener('abort', onAbort)
   }
 }
 
-/** Observations by beacon id. A beacon with no station, or whose station failed, maps to null. */
+async function fetchStation(stationId: string, nowMs: number, signal?: AbortSignal): Promise<Observation | null> {
+  const raw = await fetchJson(buildObservationsUrl(stationId), OBSERVATION_TIMEOUT_MS, signal)
+  return parseObservations(raw, stationId, nowMs)
+}
+
+/** Observations by station id. A station that failed or has nothing fresh maps to null. */
 export type ObservationMap = Record<string, Observation | null>
 
 /**
  * One request per station, in parallel. A slow or broken station only loses
- * its own beacon; it never holds up the others or the forecast.
+ * its own readings; it never holds up the others or the forecast.
  */
-export async function fetchObservations(beacons: readonly Beacon[], signal?: AbortSignal): Promise<ObservationMap> {
+export async function fetchObservations(
+  stations: readonly Pick<Station, 'id'>[],
+  signal?: AbortSignal,
+): Promise<ObservationMap> {
   const nowMs = Date.now()
   const entries = await Promise.all(
-    beacons.map(async (beacon) => {
-      if (!beacon.weatherStation) return [beacon.id, null] as const
+    stations.map(async ({ id }) => {
       try {
-        return [beacon.id, await fetchStation(beacon.weatherStation.id, nowMs, signal)] as const
+        return [id, await fetchStation(id, nowMs, signal)] as const
       } catch {
-        return [beacon.id, null] as const
+        return [id, null] as const
       }
     }),
   )

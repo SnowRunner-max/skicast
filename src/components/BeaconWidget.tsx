@@ -36,7 +36,7 @@ function Title({ beacon, current, snap }: { beacon: Beacon; current: Current | n
       <div>
         <h2>{beacon.name}</h2>
         <p>
-          {beacon.elevationFt.toLocaleString('en-US')} ft, {beacon.pinnedTo}
+          {beacon.weatherStation.elevationFt.toLocaleString('en-US')} ft, {beacon.pinnedTo}
         </p>
       </div>
       {snap === 'peek' && current && band && (
@@ -67,7 +67,7 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
           <p className="source-line" data-source={current.status}>
             {current.status === 'model' && <WarningGlyph />}
             {current.status === 'station' &&
-              `Measured at ${beacon.weatherStation?.name}, ${agoLabel(current.observedAt ?? forecast.fetchedAt, now)}`}
+              `Measured at ${current.stations.map((s) => s.name).join(' and ')}, ${agoLabel(current.observedAt ?? forecast.fetchedAt, now)}`}
             {current.status === 'model' && warning}
             {current.status === 'pending' && 'Checking the weather station…'}
           </p>
@@ -91,11 +91,7 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
             </button>
           </p>
           <p>
-            Forecast by{' '}
-            <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">
-              Open-Meteo
-            </a>
-            . Station readings via the{' '}
+            Forecast and station readings from the{' '}
             <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">
               National Weather Service
             </a>
