@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
 import { clearForecastCache } from './hooks/useForecast'
@@ -159,6 +159,30 @@ describe('App', () => {
 
     expect(await screen.findByRole('button', { name: 'Summit, gusts 24 mph from the southwest, not from a weather station' })).toBeInTheDocument()
     expect(screen.getByText('Not from weather station.')).toBeInTheDocument()
+  })
+
+  it('shows the Mountain Forecast in the toolbar: now and the next four hours, from the summit', async () => {
+    stubFetch(ok)
+    render(<App />)
+
+    const bar = await screen.findByRole('region', { name: /Mountain forecast/ })
+    expect(screen.getByRole('banner')).toContainElement(bar)
+    const slots = within(bar).getAllByRole('listitem')
+    expect(slots).toHaveLength(5)
+    // The summit square's sustained wind, not its gusts (24 mph): 17.7 now, then 17.9, 17.9, 17.4, 16.8.
+    expect(slots[0]).toHaveTextContent(/^Now: (Sunny|Clear), wind 18 mph, forecast\./)
+    expect(slots.slice(1).map((s) => /wind (\d+) mph/.exec(s.textContent ?? '')?.[1])).toEqual(['18', '18', '17', '17'])
+  })
+
+  it('keeps the Mountain Forecast on the summit whichever beacon is selected, with the measured wind when there is one', async () => {
+    stubFetch(ok, stationsReporting)
+    render(<App />)
+
+    // Gondola 2 Tower 10 (MTH12) measures 20 km/h for the summit: 12 mph.
+    const bar = await screen.findByRole('region', { name: /Mountain forecast/ })
+    expect(await within(bar).findByText(/^Now: .*, wind 12 mph\.$/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /^Canyon Lodge, gusts/ }))
+    expect(within(bar).getByText(/^Now: .*, wind 12 mph\.$/)).toBeInTheDocument()
   })
 
   it('credits OpenStreetMap on the map', async () => {

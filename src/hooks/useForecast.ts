@@ -5,8 +5,8 @@ import { fetchForecast } from '../lib/nwsForecast'
 import type { BeaconForecast } from '../types'
 import { useVisiblePolling } from './useVisiblePolling'
 
-// v2: the NWS forecast, with the sky in words rather than a WMO code.
-const STORAGE_KEY = 'skicast:forecast:v2'
+// v3: each hour also carries its weather, cloud cover and daylight, for the Mountain Forecast.
+const STORAGE_KEY = 'skicast:forecast:v3'
 
 /** Past this age a saved forecast's "next 6 hours" are all behind us, so it is dropped. */
 const MAX_SAVED_AGE_MS = 6 * 60 * 60 * 1000

@@ -42,6 +42,8 @@ export interface Station {
   elevationFt: number
 }
 
+import type { NwsWeather } from './lib/sky'
+
 export interface WindHour {
   /** Local mountain time, e.g. "2026-11-15T15:00". */
   time: string
@@ -51,6 +53,15 @@ export interface WindHour {
   dirDeg: number
 }
 
+/** One forecast hour: its wind, plus what the sky is doing, for the Mountain Forecast's icons. */
+export interface ForecastHour extends WindHour {
+  cloudPct: number
+  /** The forecast weather for the hour as NWS sends it; empty for none. */
+  weather: NwsWeather[]
+  /** Whether the sun is up at the station halfway through the hour, so a clear hour is drawn as a sun or a moon. */
+  daylight: boolean
+}
+
 export interface BeaconForecast {
   beacon: Beacon
   now: {
@@ -58,11 +69,10 @@ export interface BeaconForecast {
     feelsF: number
     /** Average per hour over the forecast period covering now, which NWS gives in blocks of up to six hours. */
     precipIn: number
-    cloudPct: number
     /** The sky in words: the forecast weather ("Chance of light snow") or, with none, the cloud cover ("Partly cloudy"). */
     sky: string
-  } & WindHour
-  next6: WindHour[]
+  } & ForecastHour
+  next6: ForecastHour[]
   fetchedAt: string
 }
 

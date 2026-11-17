@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { FORECAST_ROW_PX } from './MountainForecastBar'
 
 export type Snap = 'peek' | 'half' | 'full'
 
@@ -7,12 +8,13 @@ const HEADER_PX = 84
 /** At the peek stop the header shows, with a sliver of the body so the sheet reads as something to pull up. */
 const PEEK_PX = HEADER_PX + 8
 /**
- * Room left above a fully open sheet: the 56px toolbar and its border, plus a
- * strip of map so the sheet still looks like a sheet. This assumes the toolbar
- * is not pushed down by a top safe-area inset, which holds in a browser tab;
- * an installed, full-screen build would need to add the inset here.
+ * Room left above a fully open sheet: the 56px toolbar, the Mountain Forecast
+ * row under it and its border, plus a strip of map so the sheet still looks
+ * like a sheet. This assumes the toolbar is not pushed down by a top
+ * safe-area inset, which holds in a browser tab; an installed, full-screen
+ * build would need to add the inset here.
  */
-const TOOLBAR_CLEARANCE_PX = 68
+const TOOLBAR_CLEARANCE_PX = 68 + FORECAST_ROW_PX
 /**
  * The resting stop is 46% of the screen: enough for the title, where the
  * numbers come from and the temperature, while the map keeps the larger half.
