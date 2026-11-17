@@ -7,6 +7,7 @@ import { BEACONS, DEFAULT_BEACON_ID } from './data/beacons'
 import { useForecast } from './hooks/useForecast'
 import { useObservations } from './hooks/useObservations'
 import { resolveCurrent, type Current } from './lib/current'
+import { MOUNTAIN_BEACON_ID, mountainForecast } from './lib/mountainForecast'
 import { useLayout } from './hooks/useLayout'
 import { useNow } from './hooks/useNow'
 import { useTheme } from './hooks/useTheme'
@@ -36,6 +37,13 @@ export default function App() {
     )
     return byId
   }, [forecasts, observations])
+  // The same for every beacon: mountain weather is broader than one station.
+  const mountainSource = forecasts?.find((f) => f.beacon.id === MOUNTAIN_BEACON_ID) ?? null
+  const mountainCurrent = currents?.[MOUNTAIN_BEACON_ID] ?? null
+  const mountain = useMemo(
+    () => (mountainSource ? mountainForecast(mountainSource, mountainCurrent, now) : null),
+    [mountainSource, mountainCurrent, now],
+  )
   const onRefresh = useCallback(() => {
     refresh()
     refreshObservations()
@@ -50,6 +58,7 @@ export default function App() {
         now={now}
         theme={theme}
         onToggleTheme={toggle}
+        mountain={mountain}
       />
       <main className="layout">
         <div className="map-frame">

@@ -78,3 +78,10 @@ export function peakGust(hours: readonly WindHour[]): WindHour | null {
 export function mph(value: number): number {
   return Math.round(value)
 }
+
+/**
+ * Sustained wind (not gust) at which the Mountain Forecast draws its "windy"
+ * icon, when nothing is falling. The National Weather Service calls 25 to 40
+ * mph sustained "windy" in its forecast wording; below that the sky icon says more.
+ */
+export const WINDY_SUSTAINED_MPH = 25

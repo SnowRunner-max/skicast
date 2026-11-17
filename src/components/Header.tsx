@@ -1,5 +1,8 @@
+import type { CSSProperties } from 'react'
 import { agoLabel } from '../lib/time'
+import type { MountainForecast } from '../lib/mountainForecast'
 import type { Theme } from '../hooks/useTheme'
+import { FORECAST_ROW_PX, MountainForecastBar } from './MountainForecastBar'
 
 interface Props {
   fetchedAt: string | null
@@ -8,20 +11,22 @@ interface Props {
   now: number
   theme: Theme
   onToggleTheme: () => void
+  mountain: MountainForecast | null
 }
 
-export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme }: Props) {
+export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme, mountain }: Props) {
   let status = ''
   if (loading) status = fetchedAt ? 'Updating…' : 'Loading…'
   else if (fetchedAt) status = `Updated ${agoLabel(fetchedAt, now)}`
   else if (error) status = 'No forecast'
 
   return (
-    <header className="toolbar">
+    <header className="toolbar" style={{ '--forecast-row': `${FORECAST_ROW_PX}px` } as CSSProperties}>
       <div className="toolbar-brand">
         <h1>Skicast</h1>
         <p>Mammoth Mountain</p>
       </div>
+      <MountainForecastBar forecast={mountain} loading={loading} error={error} />
       <div className="toolbar-actions">
         <p className="toolbar-status" aria-live="polite">
           {status}

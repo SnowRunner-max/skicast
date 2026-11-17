@@ -1,8 +1,9 @@
 import { FORECAST_TIMEOUT_MS, NWS_BASE_URL } from '../config'
-import type { Beacon, BeaconForecast, ForecastCell, WindHour } from '../types'
+import type { Beacon, BeaconForecast, ForecastCell, ForecastHour } from '../types'
 import { windChillF } from './current'
 import { fetchJson } from './nws'
 import { skyLabel, type NwsWeather } from './sky'
+import { isDaylight } from './sun'
 import { mountainHour } from './time'
 import { cToF, TO_CELSIUS, TO_DEGREES, TO_INCHES, TO_MPH, TO_PERCENT, type UnitTable } from './units'
 
@@ -121,12 +122,19 @@ export function parseGrid(raw: unknown, nowMs: number, label = 'grid square'): G
   return { elevationM, hours: [now, ...hours.slice(1).filter((h) => Number.isFinite(h.gustMph) && Number.isFinite(h.dirDeg))] }
 }
 
-const windHour = (h: GridHour): WindHour => ({
-  time: mountainHour(h.startMs),
-  speedMph: h.speedMph,
-  gustMph: h.gustMph,
-  dirDeg: h.dirDeg,
-})
+function forecastHour(h: GridHour, beacon: Beacon): ForecastHour {
+  const { lat, lon } = beacon.weatherStation
+  return {
+    time: mountainHour(h.startMs),
+    speedMph: h.speedMph,
+    gustMph: h.gustMph,
+    dirDeg: h.dirDeg,
+    // Null, not NaN: the forecast is saved as JSON, which has no NaN.
+    cloudPct: Number.isFinite(h.cloudPct) ? h.cloudPct : null,
+    weather: h.weather,
+    daylight: isDaylight(h.startMs + HOUR_MS / 2, lat, lon),
+  }
+}
 
 /**
  * Fits a grid square's forecast to one beacon. Wind is the square's as it
@@ -144,14 +152,13 @@ export function beaconForecast(beacon: Beacon, grid: GridForecast, fetchedAt: st
   return {
     beacon,
     now: {
-      ...windHour(now),
+      ...forecastHour(now, beacon),
       tempF,
       feelsF: windChillF(tempF, now.speedMph),
       precipIn: now.precipInPerHour,
-      cloudPct: Number.isFinite(now.cloudPct) ? now.cloudPct : 0,
       sky: skyLabel(now.weather, now.cloudPct),
     },
-    next6: next.map(windHour),
+    next6: next.map((h) => forecastHour(h, beacon)),
     fetchedAt,
   }
 }

@@ -64,24 +64,61 @@ body { overflow: hidden; overscroll-behavior: none; }
 }
 .toolbar {
   flex: none;
-  height: 56px;
-  display: flex;
-  justify-content: space-between;
+  /*
+   * On an upright phone the Mountain Forecast has no room beside the brand, so
+   * it takes a row of its own underneath; --forecast-row is set inline from
+   * MountainForecastBar.tsx, which BottomSheet also reads. The side-by-side
+   * layouts put it between the brand and the buttons (see Layouts).
+   */
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 56px var(--forecast-row, 46px);
+  grid-template-areas: "brand actions" "forecast forecast";
   align-items: center;
-  gap: 12px;
+  column-gap: 12px;
   padding: env(safe-area-inset-top) max(8px, var(--edge-right)) 0 max(18px, var(--edge-left));
-  /* content-box, so the safe-area padding adds to the 56px instead of eating into it. */
-  box-sizing: content-box;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
 /* The brand gives way before the status does: on a 320px phone "Updated 12 min ago" is the part worth keeping whole. */
-.toolbar-brand { display: flex; flex-direction: column; flex: 0 1 auto; min-width: 0; }
+.toolbar-brand { grid-area: brand; display: flex; flex-direction: column; min-width: 0; }
 .toolbar-brand h1 { font-size: 1.18rem; font-weight: 650; letter-spacing: -.6px; line-height: 1.15; margin: 0; }
 .toolbar-brand p { color: var(--secondary); font-size: .76rem; line-height: 1.2; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.toolbar-actions { display: flex; flex: none; align-items: center; gap: 6px; }
+.toolbar-actions { grid-area: actions; display: flex; align-items: center; gap: 6px; }
 .toolbar-status { color: var(--secondary); font-size: .82rem; margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .toolbar .icon-button { border: 0; background: none; }
+
+/* ---- Mountain Forecast (the toolbar's weather strip) ---- */
+.mountain-forecast {
+  grid-area: forecast;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 100%;
+  /* Lines the strip's last number up under the theme button's icon rather than the screen edge. */
+  padding-right: 10px;
+  border-top: 1px solid var(--line);
+  /* The heading shows only where the row has room for it; see the container query below. */
+  container-type: inline-size;
+}
+.mf-heading { display: none; flex-direction: column; flex: none; margin: 0; line-height: 1.15; }
+.mf-title { font-size: .76rem; font-weight: 600; white-space: nowrap; }
+.mf-source { color: var(--secondary); font-size: .68rem; font-weight: 400; white-space: nowrap; }
+.mf-empty { margin: 0; color: var(--secondary); font-size: .82rem; }
+.mf-slots { display: flex; flex: 1; justify-content: space-between; align-items: center; gap: 10px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.mf-slot { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
+/* Now stands apart from the hours to its right. */
+.mf-slot[data-now] { align-items: flex-start; padding-right: clamp(8px, 3vw, 14px); border-right: 1px solid var(--line); }
+.mf-time { color: var(--secondary); font-size: .68rem; line-height: 1.1; white-space: nowrap; }
+.mf-slot[data-now] .mf-time { color: var(--text); font-weight: 600; }
+.mf-main { display: flex; align-items: center; gap: 3px; }
+.mf-wind { font-size: .88rem; font-weight: 600; line-height: 1.15; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mf-slot[data-now] .mf-wind { font-size: 1rem; }
+.mf-unit { color: var(--secondary); font-size: .7rem; font-weight: 500; }
+.sky-icon { flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+/* Filled with the toolbar's background, so a sun or moon behind the cloud is hidden. */
+.sky-cloud { fill: var(--bg); }
 
 /* Every icon is line-drawn in the text colour. The arrows on beacons and the dial set their own weight below. */
 .icon-button svg, .wind-arrow, .map-north svg, .warning-glyph {
@@ -354,10 +391,43 @@ body { overflow: hidden; overscroll-behavior: none; }
 /* contain: reaching the end of the forecast must not start dragging the page or the map behind it. */
 .sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--gutter) calc(18px + env(safe-area-inset-bottom)); }
 
+/* The strip's own width, not the screen's, decides whether the heading fits beside five hours. */
+@container (min-width: 440px) {
+  .mf-heading { display: flex; }
+}
+
 /* ==== Layouts ==== */
 
 /* ---- Side by side: map in a frame on the left, forecast card on the right (split and wide) ---- */
 .app:is([data-layout="split"], [data-layout="wide"]) .toolbar-brand { flex-direction: row; align-items: baseline; gap: 10px; }
+/* One row: brand, the Mountain Forecast in the middle, then the buttons. */
+.app:is([data-layout="split"], [data-layout="wide"]) .toolbar {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "brand forecast actions";
+}
+.app:is([data-layout="split"], [data-layout="wide"]) .mountain-forecast {
+  justify-self: center;
+  width: 100%;
+  max-width: 560px;
+  padding-right: 0;
+  border-top: 0;
+}
+/* Beside the brand there is width to spare, so the hours sit at an even step instead of spreading to fill it. */
+.app:is([data-layout="split"], [data-layout="wide"]) .mf-slots { justify-content: flex-start; gap: clamp(10px, 2vw, 22px); }
+/*
+ * A phone on its side can be as narrow as 540px, too little for the brand, five
+ * hours and the status in one row. The toolbar's own width decides what gives
+ * way, subtitle first: the five hours need about 285px. The status can go
+ * because in this layout the card beside the map says when it was updated and
+ * offers Refresh. Wide is always 1100px or more, so it never gets here.
+ */
+.app[data-layout="split"] .toolbar { container: toolbar / inline-size; }
+@container toolbar (max-width: 690px) {
+  .app[data-layout="split"] .toolbar-brand p { display: none; }
+}
+@container toolbar (max-width: 560px) {
+  .app[data-layout="split"] .toolbar-status { display: none; }
+}
 .app:is([data-layout="split"], [data-layout="wide"]) .layout {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -376,7 +446,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 .app:is([data-layout="split"], [data-layout="wide"]) .widget-card { align-self: start; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 
 /* ---- Split: a phone on its side. Height is the scarce thing, so everything is tight. ---- */
-.app[data-layout="split"] .toolbar { height: 44px; }
+.app[data-layout="split"] .toolbar { grid-template-rows: 44px; }
 .app[data-layout="split"] .layout {
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
   gap: 10px;
@@ -387,7 +457,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 .app[data-layout="split"] .widget-card .widget-title { margin-bottom: 12px; }
 
 /* ---- Wide: desktop spacing ---- */
-.app[data-layout="wide"] .toolbar { height: 72px; padding-left: 40px; padding-right: 40px; }
+.app[data-layout="wide"] .toolbar { grid-template-rows: 72px; column-gap: 28px; padding-left: 40px; padding-right: 40px; }
 .app[data-layout="wide"] .toolbar-brand h1 { font-size: 1.3rem; }
 .app[data-layout="wide"] .toolbar-brand p { font-size: .82rem; }
 .app[data-layout="wide"] .toolbar-actions { gap: 14px; }
