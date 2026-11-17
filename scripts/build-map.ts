@@ -52,10 +52,19 @@ const REVIEW: Record<number, { name?: string; label?: string | null; skip?: bool
 }
 
 /** Terrain grid: spacing between samples, and how far it reaches past the lifts. */
-const TERRAIN_SPACING_M = 90
+const TERRAIN_SPACING_M = 30
+const TERRAIN_CONCURRENCY = 4
 const TERRAIN_MARGIN_X_M = 1200
 const TERRAIN_MARGIN_Y_M = 4000
-const CONTOUR_INTERVAL_M = 80
+const CONTOUR_INTERVAL_M = 40
+/** Every Nth contour is an index line, drawn a little stronger. */
+const CONTOUR_INDEX_EVERY = 5
+const TERRAIN_BLUR_PASSES = 1
+/** Shortest closed ring and open line kept, in metres along the line. */
+const MIN_RING_M = 260
+const MIN_LINE_M = 200
+/** Contour simplification tolerance, in SVG units (about 6 m to the unit). */
+const CONTOUR_TOLERANCE = 0.45
 
 const USER_AGENT = 'skicast-build-map/0.1'
 
@@ -331,7 +340,11 @@ async function fetchTerrain(): Promise<void> {
 
   const elevM = new Array<number>(points.length).fill(NaN)
   const BATCH = 400
-  for (let start = 0; start < points.length; start += BATCH) {
+  const starts: number[] = []
+  for (let start = 0; start < points.length; start += BATCH) starts.push(start)
+  let done = 0
+
+  const fetchBatch = async (start: number): Promise<void> => {
     const batch = points.slice(start, start + BATCH)
     const body = new URLSearchParams({
       geometry: JSON.stringify({ points: batch, spatialReference: { wkid: 4326 } }),
@@ -340,7 +353,7 @@ async function fetchTerrain(): Promise<void> {
       f: 'json',
     })
     let data: { samples?: { locationId: number; value: string }[] } | undefined
-    for (let attempt = 1; attempt <= 3 && !data?.samples; attempt++) {
+    for (let attempt = 1; attempt <= 4 && !data?.samples; attempt++) {
       try {
         data = (await fetchJson(
           'https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/getSamples',
@@ -356,8 +369,17 @@ async function fetchTerrain(): Promise<void> {
       const v = Number(s.value)
       if (Number.isFinite(v)) elevM[start + s.locationId] = Math.round(v)
     }
-    console.log(`USGS 3DEP: ${Math.min(start + BATCH, points.length)} / ${points.length}`)
+    done++
+    if (done % 10 === 0 || done === starts.length) console.log(`USGS 3DEP: ${done} / ${starts.length} batches`)
   }
+
+  // A few requests at a time; the fine grid is a couple of hundred batches.
+  const queue = [...starts]
+  await Promise.all(
+    Array.from({ length: TERRAIN_CONCURRENCY }, async () => {
+      for (let start = queue.shift(); start !== undefined; start = queue.shift()) await fetchBatch(start)
+    }),
+  )
 
   const missing = elevM.filter((v) => Number.isNaN(v)).length
   if (missing > 0) throw new Error(`${missing} terrain samples came back empty`)
@@ -379,12 +401,57 @@ async function fetchTerrain(): Promise<void> {
 
 // ---- Contours (marching squares) -----------------------------------------
 
-/** Contour polylines in view metres, one list per level. */
-function contourLines(t: Terrain, interval: number): Point[][] {
+/**
+ * Light blur (1-2-1 in each direction, per pass) so contours follow the shape of
+ * the slope rather than every boulder field in the 30 m samples.
+ */
+function generalise(t: Terrain, passes: number): Terrain {
+  let src = t.elevM
+  const clampIdx = (i: number, n: number) => Math.max(0, Math.min(n - 1, i))
+  for (let pass = 0; pass < passes; pass++) {
+    const tmp = new Array<number>(src.length)
+    const out = new Array<number>(src.length)
+    for (let r = 0; r < t.rows; r++) {
+      for (let c = 0; c < t.cols; c++) {
+        const row = r * t.cols
+        tmp[row + c] = (src[row + clampIdx(c - 1, t.cols)]! + 2 * src[row + c]! + src[row + clampIdx(c + 1, t.cols)]!) / 4
+      }
+    }
+    for (let r = 0; r < t.rows; r++) {
+      for (let c = 0; c < t.cols; c++) {
+        out[r * t.cols + c] =
+          (tmp[clampIdx(r - 1, t.rows) * t.cols + c]! + 2 * tmp[r * t.cols + c]! + tmp[clampIdx(r + 1, t.rows) * t.cols + c]!) / 4
+      }
+    }
+    src = out
+  }
+  return { ...t, elevM: src }
+}
+
+interface Contour {
+  levelM: number
+  /** View metres. A closed ring repeats its first point at the end. */
+  points: Point[]
+}
+
+const isClosed = (line: Point[]) => line[0]!.x === line[line.length - 1]!.x && line[0]!.y === line[line.length - 1]!.y
+
+function lengthOf(line: Point[]): number {
+  let total = 0
+  for (let i = 1; i < line.length; i++) total += Math.hypot(line[i]!.x - line[i - 1]!.x, line[i]!.y - line[i - 1]!.y)
+  return total
+}
+
+/** Contour polylines in view metres. */
+function contourLines(t: Terrain, interval: number): Contour[] {
   const at = (c: number, r: number) => t.elevM[r * t.cols + c]!
-  const lo = Math.min(...t.elevM)
-  const hi = Math.max(...t.elevM)
-  const lines: Point[][] = []
+  let lo = Infinity
+  let hi = -Infinity
+  for (const v of t.elevM) {
+    lo = Math.min(lo, v)
+    hi = Math.max(hi, v)
+  }
+  const lines: Contour[] = []
 
   for (let level = Math.ceil(lo / interval) * interval; level < hi; level += interval) {
     // A crossing lives on a grid edge, so the edge is an exact key for stitching.
@@ -406,7 +473,7 @@ function contourLines(t: Terrain, interval: number): Point[][] {
 
     for (let r = 0; r < t.rows - 1; r++) {
       for (let c = 0; c < t.cols - 1; c++) {
-        const above = (cc: number, rr: number) => at(cc, rr) >= level
+        const above = (cc: number, rr: number) => at(cc, rr) > level
         const idx =
           (above(c, r) ? 1 : 0) | (above(c + 1, r) ? 2 : 0) | (above(c + 1, r + 1) ? 4 : 0) | (above(c, r + 1) ? 8 : 0)
         if (idx === 0 || idx === 15) continue
@@ -485,7 +552,9 @@ function contourLines(t: Terrain, interval: number): Point[][] {
       if (!used[i]) chains.push(walk(i, a))
     })
     for (const chain of chains) {
-      if (chain.length >= 5) lines.push(chain.map((k) => crossing.get(k)!))
+      const points = chain.map((k) => crossing.get(k)!)
+      // Drop specks: single boulders and hollows, and corners clipped by the grid edge.
+      if (lengthOf(points) >= (isClosed(points) ? MIN_RING_M : MIN_LINE_M)) lines.push({ levelM: level, points })
     }
   }
   return lines
@@ -493,7 +562,7 @@ function contourLines(t: Terrain, interval: number): Point[][] {
 
 /** One round of Chaikin corner cutting; keeps the ends of open lines. */
 function smooth(line: Point[]): Point[] {
-  const closed = line[0]!.x === line[line.length - 1]!.x && line[0]!.y === line[line.length - 1]!.y
+  const closed = isClosed(line)
   const out: Point[] = closed ? [] : [line[0]!]
   for (let i = 0; i < line.length - 1; i++) {
     const a = line[i]!
@@ -518,12 +587,14 @@ function simplify(line: Point[], tolerance: number): Point[] {
     const b = line[i1]!
     const dx = b.x - a.x
     const dy = b.y - a.y
+    const ring = dx === 0 && dy === 0
     const len = Math.hypot(dx, dy) || 1
     let worst = 0
     let worstIdx = -1
     for (let i = i0 + 1; i < i1; i++) {
       const p = line[i]!
-      const d = Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / len
+      // A closed ring starts and ends on the same point; measure from that point instead of a line.
+      const d = ring ? Math.hypot(p.x - a.x, p.y - a.y) : Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) / len
       if (d > worst) {
         worst = d
         worstIdx = i
@@ -543,6 +614,20 @@ const r1 = (n: number) => Math.round(n * 10) / 10
 
 function pathD(points: Point[]): string {
   return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${r1(p.x)} ${r1(p.y)}`).join('')
+}
+
+/** Compact path for contours: relative moves, and Z for closed rings. */
+function contourD(points: Point[]): string {
+  const closed = isClosed(points)
+  const pts = (closed ? points.slice(0, -1) : points).map((p) => ({ x: Math.round(p.x * 10), y: Math.round(p.y * 10) }))
+  const num = (tenths: number) => String(tenths / 10)
+  let d = `M${num(pts[0]!.x)} ${num(pts[0]!.y)}l`
+  for (let i = 1; i < pts.length; i++) {
+    const dx = num(pts[i]!.x - pts[i - 1]!.x)
+    const dy = num(pts[i]!.y - pts[i - 1]!.y)
+    d += `${i > 1 && !dx.startsWith('-') ? ' ' : ''}${dx}${dy.startsWith('-') ? '' : ' '}${dy}`
+  }
+  return closed ? `${d}z` : d
 }
 
 function build(): void {
@@ -582,17 +667,18 @@ function build(): void {
       return { osmId: f.properties.osmId, lat, lon, x: r1(p.x), y: r1(p.y) }
     })
 
-  let contours: string[] = []
+  let contours: { d: string; index: boolean }[] = []
   let world = { x: 0, y: 0, width: layout.width, height: layout.height }
   if (existsSync(TERRAIN_PATH)) {
     const terrain = JSON.parse(readFileSync(TERRAIN_PATH, 'utf8')) as Terrain
     if (terrain.lat0 !== VIEW.lat0 || terrain.lon0 !== VIEW.lon0 || terrain.bearingDeg !== VIEW.bearingDeg) {
       throw new Error('Terrain grid was sampled for a different projection. Run `npm run map:terrain` again.')
     }
-    contours = contourLines(terrain, CONTOUR_INTERVAL_M)
-      .map((line) => simplify(smooth(line).map(toSvg), 0.35))
-      .filter((line) => line.length >= 3)
-      .map(pathD)
+    const indexStep = CONTOUR_INTERVAL_M * CONTOUR_INDEX_EVERY
+    contours = contourLines(generalise(terrain, TERRAIN_BLUR_PASSES), CONTOUR_INTERVAL_M)
+      .map((c) => ({ levelM: c.levelM, points: simplify(smooth(c.points).map(toSvg), CONTOUR_TOLERANCE) }))
+      .filter((c) => c.points.length >= 4)
+      .map((c) => ({ d: contourD(c.points), index: c.levelM % indexStep === 0 }))
     const topLeft = toSvg({ x: terrain.x0, y: terrain.y0 + (terrain.rows - 1) * terrain.spacingM })
     world = {
       x: r1(topLeft.x),
@@ -640,6 +726,11 @@ export interface MapStation {
   y: number
 }
 
+export interface MapContour {
+  d: string
+  index: boolean
+}
+
 export interface MapData {
   /** Frame that fits every lift, with padding. */
   viewBox: { width: number; height: number }
@@ -650,7 +741,8 @@ export interface MapData {
   northAngle: number
   lifts: MapLift[]
   stations: MapStation[]
-  contours: string[]
+  /** Terrain contours. Index lines fall on every ${CONTOUR_INDEX_EVERY}th level (${CONTOUR_INTERVAL_M * CONTOUR_INDEX_EVERY} m). */
+  contours: MapContour[]
 }
 
 export const MAP: MapData = ${JSON.stringify(

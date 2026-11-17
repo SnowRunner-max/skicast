@@ -1,16 +1,45 @@
 export interface Beacon {
   id: string
   name: string
-  /** OSM node id of the lift station the beacon is pinned to. */
-  stationOsmId: number
-  /** Approximate; only used to correct the forecast for altitude. */
-  elevationFt: number
-  /** What the beacon is pinned to, in words. */
+  /** What the beacon sits at, in words. Shown under the name with the station's elevation. */
   pinnedTo: string
   /** Short name drawn next to the beacon on the map. */
   shortName: string
-  /** Where the map label sits relative to the dot, chosen by hand to stay clear of lift lines. */
+  /** Where the map label sits relative to the dot, chosen by hand to stay clear of lift lines and neighbours. */
   labelSide: 'left' | 'right' | 'below'
+  /** The weather station the beacon is drawn at and reads from first. */
+  weatherStation: Station
+  /**
+   * Nearby stations that fill in, value by value and in this order, what the
+   * main station does not send. Only for a neighbour close enough to stand in.
+   */
+  backupStations?: readonly Station[]
+  /**
+   * The NWS forecast grid square the beacon's station sits in, from
+   * api.weather.gov/points/{lat},{lon} (gridId, gridX, gridY). Squares are
+   * 2.5 km across, so neighbouring beacons can share one.
+   */
+  forecastCell: ForecastCell
+}
+
+/** One square of the National Weather Service's forecast grid. */
+export interface ForecastCell {
+  /** Forecast office, e.g. "REV" for Reno. */
+  office: string
+  x: number
+  y: number
+}
+
+/** One of Mammoth's weather stations, as listed in src/data/stations.ts. */
+export interface Station {
+  /** NWS station identifier, e.g. "MTH03". */
+  id: string
+  /** Short name for the station as Mammoth labels it. */
+  name: string
+  lat: number
+  lon: number
+  /** As Mammoth labels it. Shown on screen, and used to correct the forecast grid square's temperature to the station's height. */
+  elevationFt: number
 }
 
 export interface WindHour {
@@ -24,7 +53,32 @@ export interface WindHour {
 
 export interface BeaconForecast {
   beacon: Beacon
-  now: { tempF: number; feelsF: number; precipIn: number; cloudPct: number; code: number } & WindHour
+  now: {
+    tempF: number
+    feelsF: number
+    /** Average per hour over the forecast period covering now, which NWS gives in blocks of up to six hours. */
+    precipIn: number
+    cloudPct: number
+    /** The sky in words: the forecast weather ("Chance of light snow") or, with none, the cloud cover ("Partly cloudy"). */
+    sky: string
+  } & WindHour
   next6: WindHour[]
   fetchedAt: string
+}
+
+/**
+ * What a station is reporting now. Any value can be null: stations drop
+ * sensors for hours (an iced anemometer, a temperature-only unit).
+ */
+export interface Observation {
+  stationId: string
+  /** ISO time of the newest reading that supplied temperature or sustained wind. */
+  observedAt: string
+  tempF: number | null
+  speedMph: number | null
+  /** The latest gust reported, which can be much older than `observedAt`. */
+  gustMph: number | null
+  /** ISO time that gust was reported, or null with no gust. */
+  gustAt: string | null
+  dirDeg: number | null
 }

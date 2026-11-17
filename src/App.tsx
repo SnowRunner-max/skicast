@@ -1,22 +1,26 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { BeaconWidget } from './components/BeaconWidget'
 import { Header } from './components/Header'
 import { MountainMap } from './components/MountainMap'
 import { snapHeights } from './components/BottomSheet'
 import { BEACONS, DEFAULT_BEACON_ID } from './data/beacons'
 import { useForecast } from './hooks/useForecast'
-import { useMediaQuery } from './hooks/useMediaQuery'
+import { useObservations } from './hooks/useObservations'
+import { resolveCurrent, type Current } from './lib/current'
+import { useLayout } from './hooks/useLayout'
 import { useNow } from './hooks/useNow'
 import { useTheme } from './hooks/useTheme'
 
 export default function App() {
   const { theme, toggle } = useTheme()
   const { forecasts, loading, error, fetchedAt, refresh } = useForecast()
+  const { observations, refresh: refreshObservations } = useObservations()
   const now = useNow()
-  const desktop = useMediaQuery('(min-width: 1100px)')
+  const layout = useLayout()
   const [selectedId, setSelectedId] = useState(DEFAULT_BEACON_ID)
   // The map frames itself above the half-open sheet. Pulling the sheet all the
   // way up leaves the map where it was, so it is still there when you come back.
+  // Seeded from the same sum the sheet uses, so the first frame is already right.
   const [sheetPx, setSheetPx] = useState(() => snapHeights(window.innerHeight).half)
   const onSheetSettle = useCallback((px: number) => {
     const { half } = snapHeights(window.innerHeight)
@@ -25,9 +29,20 @@ export default function App() {
 
   const beacon = BEACONS.find((b) => b.id === selectedId) ?? BEACONS[0]!
   const forecast = forecasts?.find((f) => f.beacon.id === beacon.id) ?? null
+  const currents = useMemo(() => {
+    if (!forecasts) return null
+    const byId: Record<string, Current> = Object.fromEntries(
+      forecasts.map((f) => [f.beacon.id, resolveCurrent(f, observations)]),
+    )
+    return byId
+  }, [forecasts, observations])
+  const onRefresh = useCallback(() => {
+    refresh()
+    refreshObservations()
+  }, [refresh, refreshObservations])
 
   return (
-    <div className="app">
+    <div className="app" data-layout={layout}>
       <Header
         fetchedAt={fetchedAt}
         loading={loading}
@@ -39,21 +54,22 @@ export default function App() {
       <main className="layout">
         <div className="map-frame">
           <MountainMap
-            forecasts={forecasts}
+            currents={currents}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            compact={!desktop}
-            bottomInset={desktop ? 0 : sheetPx}
+            layout={layout}
+            sheetPx={layout === 'sheet' ? sheetPx : 0}
           />
         </div>
         <BeaconWidget
           beacon={beacon}
           forecast={forecast}
+          current={currents?.[beacon.id] ?? null}
           loading={loading}
           error={error}
           now={now}
-          onRefresh={refresh}
-          variant={desktop ? 'card' : 'sheet'}
+          onRefresh={onRefresh}
+          variant={layout === 'sheet' ? 'sheet' : 'card'}
           onSheetSettle={onSheetSettle}
         />
       </main>

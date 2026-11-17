@@ -1,4 +1,4 @@
-import { agoLabel, hourLabel } from './time'
+import { agoLabel, hourLabel, mountainHour } from './time'
 
 describe('hourLabel', () => {
   it.each([
@@ -23,5 +23,12 @@ describe('agoLabel', () => {
     [26 * 3_600_000, '1 day ago'],
   ])('%s ms later reads %s', (delta, label) => {
     expect(agoLabel(at, ms + delta)).toBe(label)
+  })
+})
+
+describe('mountainHour', () => {
+  it('gives the hour in Mammoth time, standard and daylight', () => {
+    expect(mountainHour(Date.parse('2026-11-17T04:20:00Z'))).toBe('2026-11-16T20:00')
+    expect(mountainHour(Date.parse('2026-07-01T19:59:00Z'))).toBe('2026-07-01T12:00')
   })
 })
