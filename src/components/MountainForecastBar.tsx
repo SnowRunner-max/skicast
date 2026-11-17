@@ -55,9 +55,11 @@ export function MountainForecastBar({ forecast, loading, error }: Props) {
   )
   if (!forecast) {
     return (
-      <section className="mountain-forecast" aria-labelledby="mountain-forecast-heading">
-        {heading}
-        <p className="mf-empty">{loading || !error ? 'Loading…' : 'Not available'}</p>
+      <section className="mountain-forecast" aria-label="Mountain forecast">
+        {/* Names itself even where the heading is hidden, so an empty bar never reads as a missing one. */}
+        <p className="mf-empty">
+          Mountain forecast {loading || !error ? 'loading…' : 'not available right now'}
+        </p>
       </section>
     )
   }
