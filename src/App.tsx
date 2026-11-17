@@ -7,7 +7,7 @@ import { BEACONS, DEFAULT_BEACON_ID } from './data/beacons'
 import { useForecast } from './hooks/useForecast'
 import { useObservations } from './hooks/useObservations'
 import { resolveCurrent, type Current } from './lib/current'
-import { useMediaQuery } from './hooks/useMediaQuery'
+import { useLayout } from './hooks/useLayout'
 import { useNow } from './hooks/useNow'
 import { useTheme } from './hooks/useTheme'
 
@@ -16,10 +16,11 @@ export default function App() {
   const { forecasts, loading, error, fetchedAt, refresh } = useForecast()
   const { observations, refresh: refreshObservations } = useObservations()
   const now = useNow()
-  const desktop = useMediaQuery('(min-width: 1100px)')
+  const layout = useLayout()
   const [selectedId, setSelectedId] = useState(DEFAULT_BEACON_ID)
   // The map frames itself above the half-open sheet. Pulling the sheet all the
   // way up leaves the map where it was, so it is still there when you come back.
+  // Seeded from the same sum the sheet uses, so the first frame is already right.
   const [sheetPx, setSheetPx] = useState(() => snapHeights(window.innerHeight).half)
   const onSheetSettle = useCallback((px: number) => {
     const { half } = snapHeights(window.innerHeight)
@@ -30,9 +31,10 @@ export default function App() {
   const forecast = forecasts?.find((f) => f.beacon.id === beacon.id) ?? null
   const currents = useMemo(() => {
     if (!forecasts) return null
-    return Object.fromEntries(
+    const byId: Record<string, Current> = Object.fromEntries(
       forecasts.map((f) => [f.beacon.id, resolveCurrent(f, observations)]),
-    ) as Record<string, Current>
+    )
+    return byId
   }, [forecasts, observations])
   const onRefresh = useCallback(() => {
     refresh()
@@ -40,7 +42,7 @@ export default function App() {
   }, [refresh, refreshObservations])
 
   return (
-    <div className="app">
+    <div className="app" data-layout={layout}>
       <Header
         fetchedAt={fetchedAt}
         loading={loading}
@@ -55,8 +57,8 @@ export default function App() {
             currents={currents}
             selectedId={selectedId}
             onSelect={setSelectedId}
-            compact={!desktop}
-            bottomInset={desktop ? 0 : sheetPx}
+            layout={layout}
+            sheetPx={layout === 'sheet' ? sheetPx : 0}
           />
         </div>
         <BeaconWidget
@@ -67,7 +69,7 @@ export default function App() {
           error={error}
           now={now}
           onRefresh={onRefresh}
-          variant={desktop ? 'card' : 'sheet'}
+          variant={layout === 'sheet' ? 'sheet' : 'card'}
           onSheetSettle={onSheetSettle}
         />
       </main>

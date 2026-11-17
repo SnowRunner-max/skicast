@@ -51,6 +51,8 @@ Because the map is rotated, wind arrows are drawn in the map's frame: an arrow s
 | Info text (the three wordings) | `src/components/DataInfo.tsx` |
 | Which value comes from the station and which from the model | `src/lib/current.ts` |
 | Colors and type | `src/apple.css` (Cottonwood tokens), `src/index.css` |
+| When the screen switches between bottom sheet, phone-on-its-side and desktop | `src/hooks/useLayout.ts` (the stylesheet reads its answer from `data-layout`) |
+| How much of the screen the bottom sheet covers at each stop | top of `src/components/BottomSheet.tsx` |
 | Map rotation, which lifts are drawn, contour interval and detail | top of `scripts/build-map.ts` |
 
 ## Things to know

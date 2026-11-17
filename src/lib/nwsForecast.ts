@@ -4,6 +4,7 @@ import { windChillF } from './current'
 import { fetchJson } from './nws'
 import { skyLabel, type NwsWeather } from './sky'
 import { mountainHour } from './time'
+import { cToF, TO_CELSIUS, TO_DEGREES, TO_INCHES, TO_MPH, TO_PERCENT, type UnitTable } from './units'
 
 /** This hour plus the next six. */
 const FORECAST_HOURS = 7
@@ -50,23 +51,11 @@ function valueAt(layer: Layer | undefined, atMs: number): { value: unknown; span
 }
 
 /** A number in the units Skicast shows, or NaN. Unknown units are dropped rather than guessed at. */
-function numberAt(layer: Layer | undefined, atMs: number, convert: Record<string, (n: number) => number>): number {
+function numberAt(layer: Layer | undefined, atMs: number, convert: UnitTable): number {
   const hit = valueAt(layer, atMs)
   const fn = layer?.uom ? convert[layer.uom] : undefined
   return hit && typeof hit.value === 'number' && fn ? fn(hit.value) : NaN
 }
-
-const asC: Record<string, (n: number) => number> = {
-  'wmoUnit:degC': (c) => c,
-  'wmoUnit:degF': (f) => ((f - 32) * 5) / 9,
-}
-const toMph: Record<string, (n: number) => number> = {
-  'wmoUnit:km_h-1': (k) => k * 0.621371,
-  'wmoUnit:m_s-1': (m) => m * 2.236936,
-}
-const toDeg: Record<string, (n: number) => number> = { 'wmoUnit:degree_(angle)': (d) => d }
-const toPct: Record<string, (n: number) => number> = { 'wmoUnit:percent': (p) => p }
-const toIn: Record<string, (n: number) => number> = { 'wmoUnit:mm': (mm) => mm / 25.4 }
 
 /** One hour of a grid square's forecast, before it is fitted to a beacon. */
 export interface GridHour {
@@ -106,19 +95,19 @@ export function parseGrid(raw: unknown, nowMs: number, label = 'grid square'): G
   const hours: GridHour[] = []
   for (let i = 0; i < FORECAST_HOURS; i++) {
     const t = firstHour + i * HOUR_MS
-    const speedMph = numberAt(p.windSpeed, t, toMph)
-    const gust = numberAt(p.windGust, t, toMph)
+    const speedMph = numberAt(p.windSpeed, t, TO_MPH)
+    const gust = numberAt(p.windGust, t, TO_MPH)
     const precip = valueAt(p.quantitativePrecipitation, t)
-    const precipIn = numberAt(p.quantitativePrecipitation, t, toIn)
+    const precipIn = numberAt(p.quantitativePrecipitation, t, TO_INCHES)
     const weather = valueAt(p.weather, t)?.value
     hours.push({
       startMs: t,
-      tempC: numberAt(p.temperature, t, asC),
+      tempC: numberAt(p.temperature, t, TO_CELSIUS),
       speedMph,
       // A gust is by definition at least the sustained wind; the grid leaves some hours without one.
       gustMph: Number.isFinite(gust) ? Math.max(gust, speedMph) : speedMph,
-      dirDeg: numberAt(p.windDirection, t, toDeg),
-      cloudPct: numberAt(p.skyCover, t, toPct),
+      dirDeg: numberAt(p.windDirection, t, TO_DEGREES),
+      cloudPct: numberAt(p.skyCover, t, TO_PERCENT),
       // Precipitation comes as totals over blocks of up to six hours; spread each one evenly.
       precipInPerHour: precip && Number.isFinite(precipIn) ? precipIn / (precip.spanMs / HOUR_MS) : 0,
       weather: Array.isArray(weather) ? (weather as NwsWeather[]) : [],
@@ -149,8 +138,9 @@ export function beaconForecast(beacon: Beacon, grid: GridForecast, fetchedAt: st
   const [now, ...next] = grid.hours
   if (!now) throw new Error(`No forecast hours for ${beacon.name}`)
   const stationM = beacon.weatherStation.elevationFt * FT_TO_M
+  // Positive when the station sits below the square's average ground, where the air is warmer.
   const liftC = Number.isFinite(grid.elevationM) ? (grid.elevationM - stationM) * LAPSE_C_PER_M : 0
-  const tempF = ((now.tempC + liftC) * 9) / 5 + 32
+  const tempF = cToF(now.tempC + liftC)
   return {
     beacon,
     now: {

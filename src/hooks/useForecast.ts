@@ -3,6 +3,7 @@ import { FORECAST_TTL_MS } from '../config'
 import { BEACONS } from '../data/beacons'
 import { fetchForecast } from '../lib/nwsForecast'
 import type { BeaconForecast } from '../types'
+import { useVisiblePolling } from './useVisiblePolling'
 
 // v2: the NWS forecast, with the sky in words rather than a WMO code.
 const STORAGE_KEY = 'skicast:forecast:v2'
@@ -64,6 +65,7 @@ export function useForecast(): ForecastState {
   const [forecasts, setForecasts] = useState<BeaconForecast[] | null>(() => memory ?? readSaved())
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // `load` is created once, so it reads the newest forecasts through a ref.
   const latest = useRef(forecasts)
   latest.current = forecasts
   const inFlight = useRef<AbortController | null>(null)
@@ -91,23 +93,18 @@ export function useForecast(): ForecastState {
       })
   }, [])
 
-  useEffect(() => {
-    load(false)
-    // Re-check once a minute and whenever the tab comes back into view.
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') load(false)
-    }, 60_000)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') load(false)
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisible)
+  const loadIfStale = useCallback(() => load(false), [load])
+  useVisiblePolling(loadIfStale)
+  // Drop a request that outlives the screen. Clearing the ref matters under
+  // StrictMode, which unmounts and remounts once in development: without it
+  // the remount would see a request "in flight" that has just been aborted.
+  useEffect(
+    () => () => {
       inFlight.current?.abort()
       inFlight.current = null
-    }
-  }, [load])
+    },
+    [],
+  )
 
   const refresh = useCallback(() => load(true), [load])
 

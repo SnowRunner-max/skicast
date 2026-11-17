@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 export type Theme = 'light' | 'dark'
 
+/** Also read by the inline script in index.html, which cannot import it. Change both together. */
 const STORAGE_KEY = 'skicast:theme'
 
 /**

@@ -27,6 +27,12 @@ const DRAG_THRESHOLD_PX = 5
 /** At this scale one screen pixel is about one metre on the Mammoth map. */
 const MAX_SCALE = 6
 
+/** Where a point in map units lands on screen under `view`. */
+export function toScreen(view: View, p: { x: number; y: number }): { x: number; y: number } {
+  return { x: p.x * view.k + view.x, y: p.y * view.k + view.y }
+}
+
+/** The view that centres `box` in what is left of `size` once `insets` are kept clear, as large as it will go. */
 export function fitView(size: Size, box: Box, insets: Insets): View {
   const w = Math.max(1, size.width - insets.left - insets.right)
   const h = Math.max(1, size.height - insets.top - insets.bottom)
@@ -56,10 +62,14 @@ export function usePanZoom({ fitBox, insets, bounds }: Options) {
   const ref = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
   const [view, setView] = useState<View | null>(null)
+  /** True once the reader has panned or zoomed. From then on the map is theirs and is not re-framed for them. */
   const touched = useRef(false)
 
+  // The gesture callbacks below are created once, so they read the current
+  // size and limits through this ref rather than closing over stale values.
   const limits = useRef({ minK: 0.05, size, bounds })
   limits.current = {
+    // Zooming out stops a little past whichever is smaller: the whole map, or the framed view.
     minK: size.width > 0 ? Math.min(fitView(size, bounds, NO_INSETS).k, fitView(size, fitBox, insets).k) * 0.85 : 0.05,
     size,
     bounds,
@@ -86,19 +96,46 @@ export function usePanZoom({ fitBox, insets, bounds }: Options) {
     return () => observer.disconnect()
   }, [])
 
-  // Frame the map until the reader moves it themselves.
+  // The box and insets are taken apart into numbers so callers can pass fresh
+  // object literals on every render without the framing running again.
   const { x: fx, y: fy, width: fw, height: fh } = fitBox
   const { top, right, bottom, left } = insets
+  const home = useCallback(
+    (s: Size) => fitView(s, { x: fx, y: fy, width: fw, height: fh }, { top, right, bottom, left }),
+    [fx, fy, fw, fh, top, right, bottom, left],
+  )
+
+  /** Middle of the part of the frame the insets leave clear, as of the last layout. */
+  const lastCentre = useRef<{ x: number; y: number } | null>(null)
   useLayoutEffect(() => {
-    if (size.width === 0 || size.height === 0 || touched.current) return
-    setView(fitView(size, { x: fx, y: fy, width: fw, height: fh }, { top, right, bottom, left }))
-  }, [size, fx, fy, fw, fh, top, right, bottom, left])
+    if (size.width === 0 || size.height === 0) return
+    const centre = { x: (left + size.width - right) / 2, y: (top + size.height - bottom) / 2 }
+    const prev = lastCentre.current
+    lastCentre.current = centre
+    // Frame the map until the reader moves it themselves.
+    if (!touched.current) {
+      setView(home(size))
+      return
+    }
+    // After that the scale is theirs, but the frame can still change under
+    // them: a phone turned on its side, the sheet dropped to its peek stop.
+    // Whatever was in the middle of the clear area stays in the middle of the
+    // new one. Measuring from the clear area rather than the frame matters:
+    // over a sheet, the frame's own middle is hidden behind the sheet.
+    if (prev && (prev.x !== centre.x || prev.y !== centre.y)) {
+      const dx = centre.x - prev.x
+      const dy = centre.y - prev.y
+      setView((v) => (v ? clamp({ ...v, x: v.x + dx, y: v.y + dy }) : v))
+    }
+  }, [size, home, clamp, top, right, bottom, left])
 
   const zoomAt = useCallback(
     (factor: number, cx: number, cy: number) => {
       touched.current = true
       setView((v) => {
         if (!v) return v
+        // Clamp the scale before working out the offset: the point under the
+        // cursor only stays put if the offset uses the scale actually applied.
         const k = Math.min(MAX_SCALE, Math.max(limits.current.minK, v.k * factor))
         const ratio = k / v.k
         return clamp({ k, x: cx - (cx - v.x) * ratio, y: cy - (cy - v.y) * ratio })
@@ -126,8 +163,8 @@ export function usePanZoom({ fitBox, insets, bounds }: Options) {
   const reset = useCallback(() => {
     touched.current = false
     const s = limits.current.size
-    if (s.width > 0) setView(fitView(s, { x: fx, y: fy, width: fw, height: fh }, { top, right, bottom, left }))
-  }, [fx, fy, fw, fh, top, right, bottom, left])
+    if (s.width > 0) setView(home(s))
+  }, [home])
 
   // ---- Pointer gestures ----
   const pointers = useRef(new Map<number, { x: number; y: number }>())
@@ -181,6 +218,8 @@ export function usePanZoom({ fitBox, insets, bounds }: Options) {
     const other = [...pointers.current.entries()].find(([id]) => id !== e.pointerId)?.[1]
     pointers.current.set(e.pointerId, p)
     if (!other) return
+    // Pinch: the midpoint between the fingers moves by half of this finger's
+    // movement, and the scale changes by how much the gap between them grew.
     const before = Math.hypot(prev.x - other.x, prev.y - other.y)
     const after = Math.hypot(p.x - other.x, p.y - other.y)
     const midX = (p.x + other.x) / 2

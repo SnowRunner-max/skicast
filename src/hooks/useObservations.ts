@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { OBSERVATION_TTL_MS } from '../config'
 import { STATIONS } from '../data/stations'
 import { fetchObservations, type ObservationMap } from '../lib/nws'
+import { useVisiblePolling } from './useVisiblePolling'
 
 /** In-memory cache, shared by every mount in this tab. */
 let memory: { at: number; observations: ObservationMap } | null = null
@@ -43,22 +44,16 @@ export function useObservations(): ObservationState {
       })
   }, [])
 
-  useEffect(() => {
-    load(false)
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') load(false)
-    }, 60_000)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') load(false)
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisible)
+  const loadIfStale = useCallback(() => load(false), [load])
+  useVisiblePolling(loadIfStale)
+  // Same unmount handling as useForecast; see the note there.
+  useEffect(
+    () => () => {
       inFlight.current?.abort()
       inFlight.current = null
-    }
-  }, [load])
+    },
+    [],
+  )
 
   const refresh = useCallback(() => load(true), [load])
   return { observations, refresh }

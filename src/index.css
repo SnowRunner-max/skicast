@@ -18,6 +18,24 @@
   --color-strong: var(--wind-strong);
 }
 
+/*
+ * How this file is organised
+ *
+ * Phone first. Everything down to "Layouts" describes one upright phone: the
+ * map fills the screen under a toolbar and the forecast is a bottom sheet.
+ * Nothing in that part is undone for small screens; sizes that have to give
+ * on a narrow phone use clamp() so there is no "small phone" breakpoint.
+ *
+ * The two larger arrangements are layered on at the end and are switched by
+ * `data-layout` on .app, which src/hooks/useLayout.ts sets. There are no
+ * width media queries here on purpose: the breakpoints live in that one hook.
+ */
+
+html {
+  /* Stop iOS Safari enlarging text when the phone is turned on its side. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
 html, body, #root { height: 100%; }
 /* One screen, no page scroll: the map pans and the widget scrolls inside itself. */
 body { overflow: hidden; overscroll-behavior: none; }
@@ -27,7 +45,23 @@ body { overflow: hidden; overscroll-behavior: none; }
 [data-band="strong"] { --wind: var(--wind-strong); }
 
 /* ---- Shell ---- */
-.app { height: 100dvh; display: flex; flex-direction: column; }
+.app {
+  /* dvh follows a mobile browser's toolbar as it shows and hides; vh is for browsers without it. */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+
+  /* Side padding for the sheet and anything else that should line up with it: 16px on a 320px phone, 20px from 400px. */
+  --gutter: clamp(16px, 5vw, 20px);
+  /*
+   * index.html asks for viewport-fit=cover, so the page runs under a notch or
+   * a rounded corner. Whatever touches a screen edge pads itself by these.
+   * A framed map (see Layouts) zeroes them, because its frame is already inset.
+   */
+  --edge-left: env(safe-area-inset-left, 0px);
+  --edge-right: env(safe-area-inset-right, 0px);
+}
 .toolbar {
   flex: none;
   height: 56px;
@@ -35,19 +69,22 @@ body { overflow: hidden; overscroll-behavior: none; }
   justify-content: space-between;
   align-items: center;
   gap: 12px;
-  padding: 0 8px 0 18px;
-  padding-top: env(safe-area-inset-top);
+  padding: env(safe-area-inset-top) max(8px, var(--edge-right)) 0 max(18px, var(--edge-left));
+  /* content-box, so the safe-area padding adds to the 56px instead of eating into it. */
   box-sizing: content-box;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
-.toolbar-brand { display: flex; flex-direction: column; min-width: 0; }
+/* The brand gives way before the status does: on a 320px phone "Updated 12 min ago" is the part worth keeping whole. */
+.toolbar-brand { display: flex; flex-direction: column; flex: 0 1 auto; min-width: 0; }
 .toolbar-brand h1 { font-size: 1.18rem; font-weight: 650; letter-spacing: -.6px; line-height: 1.15; margin: 0; }
-.toolbar-brand p { color: var(--secondary); font-size: .76rem; line-height: 1.2; margin: 0; white-space: nowrap; }
-.toolbar-actions { display: flex; align-items: center; gap: 6px; }
+.toolbar-brand p { color: var(--secondary); font-size: .76rem; line-height: 1.2; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.toolbar-actions { display: flex; flex: none; align-items: center; gap: 6px; }
 .toolbar-status { color: var(--secondary); font-size: .82rem; margin: 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .toolbar .icon-button { border: 0; background: none; }
-.icon-button svg, .wind-arrow, .text-button svg {
+
+/* Every icon is line-drawn in the text colour. The arrows on beacons and the dial set their own weight below. */
+.icon-button svg, .wind-arrow, .map-north svg, .warning-glyph {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
@@ -64,6 +101,7 @@ body { overflow: hidden; overscroll-behavior: none; }
   inset: 0;
   overflow: hidden;
   background: var(--bg);
+  /* usePanZoom handles every gesture itself; without this the browser would scroll or zoom the page instead. */
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -71,6 +109,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 }
 .map:active { cursor: grabbing; }
 .map-svg { position: absolute; inset: 0; }
+/* non-scaling-stroke keeps lines the same weight on screen while the group they sit in is zoomed. */
 .map-contours path { fill: none; stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .map-contours path[data-index] { stroke: color-mix(in srgb, var(--line), var(--secondary) 22%); }
 .map-lifts path {
@@ -83,6 +122,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 }
 .map-lifts path[data-kind="gondola"] { stroke-width: 2.8; }
 .map-terminals circle { fill: var(--bg); stroke: var(--secondary); stroke-width: 1.4; }
+/* If this type size changes, LABEL_CHAR_PX in MountainMap.tsx has to follow. */
 .map-labels text {
   font-size: 11.5px;
   font-weight: 500;
@@ -93,7 +133,9 @@ body { overflow: hidden; overscroll-behavior: none; }
   paint-order: stroke;
 }
 
+/* The layer ignores the pointer so the map under it can be dragged; each beacon turns it back on for itself. */
 .map-beacons { position: absolute; inset: 0; pointer-events: none; }
+/* A 44px tap target (the smallest comfortable one for a thumb) centred on the station; the dot drawn in it is 22px. */
 .beacon {
   position: absolute;
   left: 0;
@@ -124,6 +166,7 @@ body { overflow: hidden; overscroll-behavior: none; }
   /* A halo in the map colour keeps the text readable over lift lines. */
   text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 1.5px 0 0 var(--bg), -1.5px 0 0 var(--bg), 0 1.5px 0 var(--bg), 0 -1.5px 0 var(--bg);
 }
+/* Which side each label sits on is chosen by hand in src/data/beacons.ts. */
 .beacon[data-side="right"] .beacon-label { left: 50%; top: 50%; margin-left: 21px; transform: translateY(-50%); align-items: flex-start; }
 .beacon[data-side="left"] .beacon-label { right: 50%; top: 50%; margin-right: 21px; transform: translateY(-50%); align-items: flex-end; }
 .beacon[data-side="below"] .beacon-label { left: 50%; top: 50%; margin-top: 19px; transform: translateX(-50%); align-items: center; }
@@ -132,10 +175,11 @@ body { overflow: hidden; overscroll-behavior: none; }
 .beacon-name { font-size: .72rem; font-weight: 500; color: var(--secondary); }
 .beacon[aria-pressed="true"] .beacon-name { color: var(--text); font-weight: 600; }
 
+/* Things drawn over the map. Their sizes are what insetsFor() in MountainMap.tsx keeps clear of. */
 .map-north {
   position: absolute;
   top: 10px;
-  left: 12px;
+  left: max(12px, var(--edge-left));
   display: flex;
   align-items: center;
   color: var(--secondary);
@@ -143,11 +187,10 @@ body { overflow: hidden; overscroll-behavior: none; }
   font-weight: 600;
   pointer-events: none;
 }
-.map-north svg { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.map-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 8px; }
+.map-controls { position: absolute; top: 10px; right: max(10px, var(--edge-right)); display: flex; gap: 8px; }
 .map-attribution {
   position: absolute;
-  left: 12px;
+  left: max(12px, var(--edge-left));
   bottom: 10px;
   margin: 0;
   font-size: .68rem;
@@ -166,7 +209,8 @@ body { overflow: hidden; overscroll-behavior: none; }
 
 .widget-section { border-top: 1px solid var(--line); padding: 15px 0 17px; }
 .section-label { color: var(--secondary); font-size: .82rem; font-weight: 400; margin: 0 0 7px; }
-.weather-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 28px; }
+/* The temperature keeps its natural width and the sky takes the rest, wrapping: "Slight chance of very light snow showers" is a real value. */
+.weather-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(18px, 6vw, 28px); }
 .weather-row p { margin: 0; }
 .weather-temp-value, .weather-sky-value {
   display: block;
@@ -178,14 +222,16 @@ body { overflow: hidden; overscroll-behavior: none; }
 }
 .weather-detail { display: block; color: var(--secondary); font-size: .82rem; margin-top: 3px; }
 
+/* Wraps, so a three-figure gust on a narrow phone drops the dial to its own line instead of squeezing it. */
 .wind-main { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; }
 .hero {
   display: flex;
   align-items: baseline;
   margin: 0;
-  font-size: 4rem;
-  font-weight: 600;
-  letter-spacing: -4px;
+  /* The one hero number: 4rem from about 380px wide, easing down to roughly 3.4rem on a 320px phone. */
+  font-size: clamp(3.2rem, 18vw, 4rem);
+  /* In em so the tightening scales with the size (-4px at full size). */
+  letter-spacing: -.058em;
   line-height: 1.05;
   font-variant-numeric: tabular-nums;
 }
@@ -204,6 +250,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 
 .hours-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .hours-key { color: var(--secondary); font-size: .76rem; margin: 0; }
+/* Column count is set inline by SixHourWind. minmax(0, 1fr) there lets six columns shrink to fit a 320px phone. */
 .hours { display: grid; list-style: none; margin: 4px 0 0; padding: 0; border-radius: 12px; overflow: hidden; }
 .hour {
   display: flex;
@@ -224,6 +271,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 .widget-footer { border-top: 1px solid var(--line); padding-top: 6px; color: var(--secondary); font-size: .76rem; line-height: 1.5; }
 .widget-footer p { margin: 0 0 8px; }
 .widget-footer .updated { display: flex; justify-content: space-between; align-items: center; font-size: .82rem; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+/* Looks like a link, but is 44px tall so it is as easy to hit as a button. */
 .text-button { min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--blue); font-weight: 550; }
 .text-button:disabled { color: var(--secondary); cursor: default; }
 .widget-empty { border-top: 1px solid var(--line); padding: 28px 0 8px; color: var(--secondary); }
@@ -235,25 +283,54 @@ body { overflow: hidden; overscroll-behavior: none; }
 .source-row .text-button { flex: none; white-space: nowrap; }
 .source-line { display: flex; align-items: center; gap: 7px; min-width: 0; margin: 0; color: var(--secondary); font-size: .82rem; font-variant-numeric: tabular-nums; }
 .source-line[data-source="model"] { color: var(--amber); font-weight: 550; }
-.warning-glyph { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.warning-glyph { flex: none; width: 16px; height: 16px; stroke-width: 1.9; }
 .beacon-warning { width: 12px; height: 12px; margin-right: 3px; vertical-align: -1px; color: var(--amber); }
 .wind-note { margin: 1px 0 0; color: var(--secondary); font-size: .76rem; }
 .hours-legend { margin: 2px 0 8px; }
 
-.modal-backdrop { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px; background: #0000006b; overflow-y: auto; }
-.modal { width: 100%; max-width: 420px; padding: 24px; box-shadow: 0 14px 44px #00000038; }
+/*
+ * The dialog is never taller than the screen. The backdrop is one grid row of
+ * exactly the space inside its padding, which gives the dialog's
+ * max-height: 100% something definite to measure against; past that the text
+ * scrolls inside while the title and the Close button stay put. (Centring a
+ * dialog that is allowed to outgrow the screen puts its top out of reach:
+ * scrolling cannot go above the start of the backdrop.)
+ */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  padding:
+    max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: #0000006b;
+}
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 420px;
+  max-height: 100%;
+  padding: clamp(18px, 6vw, 24px);
+  box-shadow: 0 14px 44px #00000038;
+}
 .modal-warning { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; color: var(--amber); font-size: 1rem; font-weight: 600; }
 .modal h2 { margin: 0 0 12px; font-size: 1.2rem; font-weight: 620; letter-spacing: -.4px; line-height: 1.2; }
+.modal-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .modal-body p { margin: 0 0 12px; font-size: .94rem; line-height: 1.5; }
-.modal-close { width: 100%; margin-top: 6px; }
+.modal-close { flex: none; width: 100%; margin-top: 6px; }
 
-/* ---- Bottom sheet (below 1100px) ---- */
+/* ---- Bottom sheet (the sheet layout) ---- */
 .sheet {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 20;
+  /* On a tablet the sheet stays a readable column instead of stretching edge to edge. */
   max-width: 640px;
   margin: 0 auto;
   background: var(--surface);
@@ -261,45 +338,70 @@ body { overflow: hidden; overscroll-behavior: none; }
   border-bottom: 0;
   border-radius: 24px 24px 0 0;
   box-shadow: 0 -6px 30px #00000014;
+  /* BottomSheet.tsx moves the sheet with a transform; this is the settle onto a stop. */
   transition: transform .2s cubic-bezier(.2, .8, .2, 1);
   will-change: transform;
 }
+/* While a finger is on it the sheet follows exactly, with no easing lagging behind. */
 .sheet[data-dragging="true"] { transition: none; }
-.sheet-header { height: 84px; padding: 0 20px; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+/* Height is set inline from HEADER_PX in BottomSheet.tsx. touch-action: none hands vertical drags to the sheet, not the page. */
+.sheet-header { padding: 0 var(--gutter); touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .sheet-handle { position: relative; display: block; width: 100%; height: 22px; padding: 0; border: 0; background: none; cursor: grab; }
 /* The visible grabber is small; the tap area is a full 44px. */
 .sheet-handle::before { content: ""; position: absolute; left: 0; right: 0; top: -6px; height: 44px; }
 .sheet-handle span { display: block; width: 38px; height: 5px; margin: 0 auto; border-radius: 3px; background: var(--secondary); opacity: .45; }
 .sheet-handle:focus-visible { outline-offset: -4px; border-radius: 12px; }
-.sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 0 20px calc(18px + env(safe-area-inset-bottom)); }
+/* contain: reaching the end of the forecast must not start dragging the page or the map behind it. */
+.sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 0 var(--gutter) calc(18px + env(safe-area-inset-bottom)); }
 
-/* ---- Desktop: map card left, widget card right ---- */
-@media (min-width: 1100px) {
-  .toolbar { height: 72px; padding: 0 40px; }
-  .toolbar-brand { flex-direction: row; align-items: baseline; gap: 10px; }
-  .toolbar-brand h1 { font-size: 1.3rem; }
-  .toolbar-brand p { font-size: .82rem; }
-  .map-controls { top: 12px; right: 12px; flex-direction: column; }
-  .toolbar-actions { gap: 14px; }
-  .toolbar .icon-button { border: 1px solid var(--line); background: var(--surface); }
-  .layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-    gap: 26px;
-    width: 100%;
-    max-width: 1320px;
-    margin: 0 auto;
-    padding: 26px 40px 28px;
-  }
-  .map-frame { position: relative; inset: auto; min-height: 380px; border: 1px solid var(--line); border-radius: 24px; overflow: hidden; }
-  .widget-card { align-self: start; max-height: 100%; overflow-y: auto; }
-}
+/* ==== Layouts ==== */
 
-@media (max-width: 370px) {
-  .hero { font-size: 3.4rem; letter-spacing: -3px; }
-  .sheet-header, .sheet-body { padding-left: 16px; padding-right: 16px; }
+/* ---- Side by side: map in a frame on the left, forecast card on the right (split and wide) ---- */
+.app:is([data-layout="split"], [data-layout="wide"]) .toolbar-brand { flex-direction: row; align-items: baseline; gap: 10px; }
+.app:is([data-layout="split"], [data-layout="wide"]) .layout {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
 }
+.app:is([data-layout="split"], [data-layout="wide"]) .map-frame {
+  position: relative;
+  inset: auto;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  /* The frame sits inside the layout's padding, which has already cleared any notch. */
+  --edge-left: 0px;
+  --edge-right: 0px;
+}
+.app:is([data-layout="split"], [data-layout="wide"]) .map-controls { flex-direction: column; }
+/* The card is as tall as its content up to the height of the row, then scrolls inside itself. */
+.app:is([data-layout="split"], [data-layout="wide"]) .widget-card { align-self: start; max-height: 100%; overflow-y: auto; overscroll-behavior: contain; }
+
+/* ---- Split: a phone on its side. Height is the scarce thing, so everything is tight. ---- */
+.app[data-layout="split"] .toolbar { height: 44px; }
+.app[data-layout="split"] .layout {
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px max(10px, var(--edge-right)) max(10px, env(safe-area-inset-bottom)) max(10px, var(--edge-left));
+}
+.app[data-layout="split"] .map-frame { border-radius: 16px; }
+.app[data-layout="split"] .widget-card { padding: 16px; border-radius: 16px; }
+.app[data-layout="split"] .widget-card .widget-title { margin-bottom: 12px; }
+
+/* ---- Wide: desktop spacing ---- */
+.app[data-layout="wide"] .toolbar { height: 72px; padding-left: 40px; padding-right: 40px; }
+.app[data-layout="wide"] .toolbar-brand h1 { font-size: 1.3rem; }
+.app[data-layout="wide"] .toolbar-brand p { font-size: .82rem; }
+.app[data-layout="wide"] .toolbar-actions { gap: 14px; }
+.app[data-layout="wide"] .toolbar .icon-button { border: 1px solid var(--line); background: var(--surface); }
+.app[data-layout="wide"] .layout {
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 26px;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 26px 40px 28px;
+}
+.app[data-layout="wide"] .map-frame { min-height: 380px; border-radius: 24px; }
+.app[data-layout="wide"] .map-controls { top: 12px; right: 12px; }
 
 @media (forced-colors: active) {
   .beacon-dot { stroke: CanvasText; }

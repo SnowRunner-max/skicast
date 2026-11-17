@@ -82,7 +82,11 @@ export function resolveCurrent(forecast: BeaconForecast, observations: Observati
 
   // A measured temperature needs a feels-like of its own: the model's belongs to the model's temperature.
   const feelsF = sources.temp === 'station' ? windChillF(tempF, speedMph) : m.feelsF
-  // Never show a sustained wind above the gust beside it.
+  // Never show a sustained wind above the gust beside it. Only when both come
+  // from the same kind of source, though: a measured gust is not raised to meet
+  // a forecast wind (or the reverse), because that would pass a model number
+  // off as a measurement. nws.ts and nwsForecast.ts apply the same floor within
+  // their own data, so this only matters when two stations are mixed.
   const gustMph = Math.max(gustRaw, sources.speed === sources.gust ? speedMph : 0)
   const gustReading = readings.find(({ station }) => station === stationFor.gust)
 
@@ -113,16 +117,18 @@ const FIELD_NAMES: Record<Field, string> = {
   gust: 'gusts',
   dir: 'wind direction',
 }
+/** In the order the info text lists them. */
+const FIELDS = Object.keys(FIELD_NAMES) as Field[]
 
 /** The values no station supplied, in words, for the info text. */
 export function modeledFields(current: Current): string[] {
-  return (Object.keys(FIELD_NAMES) as Field[]).filter((k) => current.sources[k] === 'model').map((k) => FIELD_NAMES[k])
+  return FIELDS.filter((k) => current.sources[k] === 'model').map((k) => FIELD_NAMES[k])
 }
 
 /** Which values each station supplied, in words, main station first: [[station, ["temperature", "gusts"]], ...]. */
 export function measuredBy(current: Current): [Station, string[]][] {
   return current.stations.map((station) => [
     station,
-    (Object.keys(FIELD_NAMES) as Field[]).filter((k) => current.stationFor[k] === station).map((k) => FIELD_NAMES[k]),
+    FIELDS.filter((k) => current.stationFor[k] === station).map((k) => FIELD_NAMES[k]),
   ])
 }

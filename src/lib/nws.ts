@@ -6,6 +6,7 @@ import {
   OBSERVATION_TIMEOUT_MS,
 } from '../config'
 import type { Observation, Station } from '../types'
+import { TO_DEGREES, TO_FAHRENHEIT, TO_MPH, type UnitTable } from './units'
 
 /** One reading as the NWS API sends it, trimmed to what Skicast uses. */
 interface NwsValue {
@@ -33,23 +34,11 @@ export function buildObservationsUrl(stationId: string, baseUrl: string = NWS_BA
 const REJECTED_QC = new Set(['X', 'Q', 'B'])
 
 /** A usable number, or null. Unknown units are dropped rather than guessed at. */
-function read(v: NwsValue | undefined, convert: Record<string, (n: number) => number>): number | null {
+function read(v: NwsValue | undefined, convert: UnitTable): number | null {
   if (!v || typeof v.value !== 'number' || !Number.isFinite(v.value)) return null
   if (v.qualityControl && REJECTED_QC.has(v.qualityControl)) return null
   const fn = v.unitCode ? convert[v.unitCode] : undefined
   return fn ? fn(v.value) : null
-}
-
-const toF: Record<string, (n: number) => number> = {
-  'wmoUnit:degC': (c) => (c * 9) / 5 + 32,
-  'wmoUnit:degF': (f) => f,
-}
-const toMph: Record<string, (n: number) => number> = {
-  'wmoUnit:km_h-1': (k) => k * 0.621371,
-  'wmoUnit:m_s-1': (m) => m * 2.236936,
-}
-const toDeg: Record<string, (n: number) => number> = {
-  'wmoUnit:degree_(angle)': (d) => d,
 }
 
 function isReading(value: unknown): value is NwsReading {
@@ -87,16 +76,19 @@ export function parseObservations(raw: unknown, stationId: string, nowMs: number
     return null
   }
 
-  const temp = latest((r) => read(r.temperature, toF))
-  const speed = latest((r) => read(r.windSpeed, toMph))
-  const dir = latest((r) => read(r.windDirection, toDeg))
-  const gust = latest((r) => read(r.windGust, toMph), OBSERVATION_GUST_MAX_AGE_MS)
+  const temp = latest((r) => read(r.temperature, TO_FAHRENHEIT))
+  const speed = latest((r) => read(r.windSpeed, TO_MPH))
+  const dir = latest((r) => read(r.windDirection, TO_DEGREES))
+  const gust = latest((r) => read(r.windGust, TO_MPH), OBSERVATION_GUST_MAX_AGE_MS)
 
+  // `observedAt` is what the screen calls "measured N min ago", so it follows the
+  // values a rider reads first: temperature and sustained wind. A gust or a
+  // direction only stamps the reading when it is all the station sent.
   const stamps = [temp?.at, speed?.at].filter((t): t is number => t !== undefined)
-  // A gust alone still counts as a reading, stamped with when the gust was reported.
-  if (gust && stamps.length === 0) stamps.push(gust.at)
-  if (stamps.length === 0 && !dir) return null
-  const observedAt = new Date(Math.max(...(stamps.length ? stamps : [dir!.at]))).toISOString()
+  if (stamps.length === 0 && gust) stamps.push(gust.at)
+  if (stamps.length === 0 && dir) stamps.push(dir.at)
+  if (stamps.length === 0) return null
+  const observedAt = new Date(Math.max(...stamps)).toISOString()
 
   const speedMph = speed?.value ?? null
   // A gust is by definition at least the sustained wind.

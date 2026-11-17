@@ -21,7 +21,7 @@ interface Props {
   /** Current time in ms, for "Updated 4 min ago". */
   now: number
   onRefresh: () => void
-  /** Side card on desktop, bottom sheet on phones. */
+  /** Bottom sheet over the map on an upright phone; a card beside the map otherwise (see useLayout). */
   variant: 'card' | 'sheet'
   onSheetSettle?: (visiblePx: number) => void
 }
@@ -29,6 +29,7 @@ interface Props {
 /** Past this age a forecast that failed to refresh is called out as old. */
 const STALE_MS = 20 * 60 * 1000
 
+/** The beacon's name and where it is. At the sheet's peek stop it also carries the gust, since nothing else is on screen. */
 function Title({ beacon, current, snap }: { beacon: Beacon; current: Current | null; snap?: Snap }) {
   const band = current ? bandForGust(current.gustMph) : null
   return (
@@ -121,6 +122,7 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
     )
   }
 
+  // Stable identities, so the sheet does not see a new header or callback on every clock tick.
   const header = useCallback(
     (snap: Snap) => <Title beacon={beacon} current={current} snap={snap} />,
     [beacon, current],

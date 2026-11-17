@@ -10,6 +10,7 @@
     <title>Skicast</title>
     <script>
       // Apply the saved (or system) appearance before first paint so there is no flash.
+      // The storage key is shared with src/hooks/useTheme.ts; change both together.
       try {
         var saved = localStorage.getItem('skicast:theme')
         var dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
