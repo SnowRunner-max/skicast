@@ -120,4 +120,20 @@ describe('resolveCurrent', () => {
   it('never shows a measured sustained wind above its own measured gust', () => {
     expect(resolveCurrent(summit, at(obs({ speedMph: 18, gustMph: 12 }))).gustMph).toBe(18)
   })
+
+  it("does not raise one station's gust to meet another station's wind", () => {
+    const top = obs({ stationId: 'MTH03', tempF: 22, gustMph: 25, gustAt: '2026-11-16T04:00:00.000Z' })
+    const tower = obs({ stationId: 'MTH12', speedMph: 30, dirDeg: 250, gustMph: 34, gustAt: '2026-11-16T05:00:00.000Z' })
+    const c = resolveCurrent(summit, at(top, tower))
+    expect(c.stationFor.gust?.id).toBe('MTH03')
+    expect(c.stationFor.speed?.id).toBe('MTH12')
+    expect([c.speedMph, c.gustMph]).toEqual([30, 25]) // MTH03 reported 25; it is not shown as 30
+  })
+
+  it('does not raise a measured gust to meet a forecast wind', () => {
+    const c = resolveCurrent(summit, at(obs({ tempF: 22, gustMph: 1 })))
+    expect(c.sources.speed).toBe('model')
+    expect(c.speedMph).toBeGreaterThan(1) // the fixture's forecast wind, which the gust is not raised to
+    expect(c.gustMph).toBe(1)
+  })
 })

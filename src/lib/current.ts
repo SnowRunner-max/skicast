@@ -82,12 +82,15 @@ export function resolveCurrent(forecast: BeaconForecast, observations: Observati
 
   // A measured temperature needs a feels-like of its own: the model's belongs to the model's temperature.
   const feelsF = sources.temp === 'station' ? windChillF(tempF, speedMph) : m.feelsF
-  // Never show a sustained wind above the gust beside it. Only when both come
-  // from the same kind of source, though: a measured gust is not raised to meet
-  // a forecast wind (or the reverse), because that would pass a model number
-  // off as a measurement. nws.ts and nwsForecast.ts apply the same floor within
-  // their own data, so this only matters when two stations are mixed.
-  const gustMph = Math.max(gustRaw, sources.speed === sources.gust ? speedMph : 0)
+  // A gust is at least the sustained wind, but only when both numbers come from
+  // the same place: one station, or the model. Raising MTH03's gust to meet
+  // MTH12's wind (or a measured gust to meet a forecast wind) would show a
+  // number nobody reported under another station's name. Across sources the two
+  // are left as read; they describe different spots, so a wind above the gust
+  // is honest there. nws.ts and nwsForecast.ts apply this floor to their own
+  // data already, so here it is only a guard.
+  const sameOrigin = sources.speed === sources.gust && stationFor.speed === stationFor.gust
+  const gustMph = sameOrigin ? Math.max(gustRaw, speedMph) : gustRaw
   const gustReading = readings.find(({ station }) => station === stationFor.gust)
 
   return {
