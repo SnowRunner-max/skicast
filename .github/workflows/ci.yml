@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Lets the deploy workflow run these same checks before it publishes.
+  workflow_call:
+
+permissions:
+  contents: read
+
+# github.workflow is the caller's name when deploy.yml calls this, so the
+# standalone run and the deploy's checks never share (and cancel) a group.
+# Only superseded pull request runs are cancelled; pushes to main always finish.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm run test:ci
+      - name: Build
+        run: npm run build

@@ -30,6 +30,8 @@ npm run dev
 
 `dist/` is plain static files with relative paths, so it deploys as-is to GitHub Pages, Netlify or Cloudflare Pages.
 
+Every pull request and push to `main` runs the typecheck, tests and build (`.github/workflows/ci.yml`). Each push to `main` that passes is published to GitHub Pages (`.github/workflows/deploy.yml`) at https://snowrunner-max.github.io/skicast/.
+
 ## The map
 
 The map is drawn from OpenStreetMap data, not from Mammoth's trail map (that artwork is theirs). `scripts/build-map.ts` does the work, by hand, not at build time:
