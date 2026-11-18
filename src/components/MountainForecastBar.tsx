@@ -49,8 +49,9 @@ interface Props {
 export function MountainForecastBar({ forecast, loading, error }: Props) {
   const heading = (
     <h2 id="mountain-forecast-heading" className="mf-heading">
-      <span className="mf-title">Mountain forecast</span>
-      <span className="mf-source">{FORECAST_SOURCE.short}, summit wind</span>
+      {/* The space keeps the two apart for screen readers; the flex layout drops it on screen. */}
+      <span className="mf-title">Mountain forecast</span>{' '}
+      <span className="mf-source">Summit</span>
     </h2>
   )
   if (!forecast) {

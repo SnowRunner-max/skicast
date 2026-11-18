@@ -1,58 +1,108 @@
 import { MAP } from '../data/mapPaths'
-import { bandForGust, compassPoint, compassWord, mph } from '../lib/wind'
+import { BAND_SCALE_MAX_MPH, bandForGust, compassPoint, compassWord, mph, WIND_BANDS } from '../lib/wind'
 import type { Current } from '../lib/current'
-import { agoLabel } from '../lib/time'
-import { OBSERVATION_LIVE_MS } from '../config'
 import { windArrowAngle } from './WindArrow'
 
-/** Current wind: the gust is the one hero number on screen. */
-export function NowWind({ current, now }: { current: Current; now: number }) {
+/** Each band's share of the meter, from the band table so the two cannot drift apart. */
+const METER_SEGMENTS = WIND_BANDS.map((band, i) => ({
+  id: band.id,
+  span: (WIND_BANDS[i + 1]?.minGustMph ?? BAND_SCALE_MAX_MPH) - band.minGustMph,
+}))
+
+/**
+ * Where the gust sits across the wind bands: a thin bar split into the bands,
+ * the one the gust is in drawn at full strength, and a marker at the gust.
+ * Decorative: the band word above it says the same thing.
+ */
+function BandMeter({ gustMph }: { gustMph: number }) {
+  const band = bandForGust(gustMph)
+  const at = (Math.min(Math.max(gustMph, 0), BAND_SCALE_MAX_MPH) / BAND_SCALE_MAX_MPH) * 100
+  return (
+    <div className="band-meter" aria-hidden="true">
+      {METER_SEGMENTS.map((s) => (
+        <span
+          key={s.id}
+          className="band-meter-segment"
+          data-band={s.id}
+          data-current={s.id === band.id || undefined}
+          style={{ flexGrow: s.span }}
+        />
+      ))}
+      {/* Kept a marker's half-width (7px, see .band-meter-marker) inside each end, so a calm or a 90 mph gust stays on the bar. */}
+      <span className="band-meter-marker" style={{ left: `clamp(7px, ${at}%, calc(100% - 7px))` }} />
+    </div>
+  )
+}
+
+/**
+ * The wind itself, the way a compass shows it: the sustained speed in the
+ * middle, and an arrow through it the way the wind blows. Drawn in the map's
+ * frame, so the arrow matches the beacons'; the N mark gives true north.
+ */
+function WindDial({ speedMph, dirDeg }: { speedMph: number; dirDeg: number }) {
+  return (
+    <svg
+      className="dial"
+      width="94"
+      height="94"
+      viewBox="-47 -47 94 94"
+      role="img"
+      aria-label={`Sustained wind ${mph(speedMph)} miles per hour from the ${compassWord(dirDeg)}`}
+    >
+      <circle className="dial-rim" r="34" />
+      <g transform={`rotate(${MAP.northAngle})`}>
+        <path className="dial-tick" d="M0 -34V-29" />
+        <text className="dial-north" y="-41" transform={`rotate(${-MAP.northAngle} 0 -41)`}>
+          N
+        </text>
+      </g>
+      {/*
+        Broken in the middle, where the speed sits: head on one side, tail on
+        the other, each reaching just inside the rim. The gap (20) clears the
+        corners of a two-figure speed and "mph" at any angle.
+      */}
+      <g transform={`rotate(${windArrowAngle(dirDeg)})`}>
+        <path className="dial-arrow" d="M0 -20V-31.5M-5.5 -26 0 -32 5.5 -26M0 20V28.5" />
+        <circle className="dial-tail" cy="30.8" r="2.2" />
+      </g>
+      <text className="dial-speed" y="2">
+        {mph(speedMph)}
+      </text>
+      <text className="dial-unit" y="14">
+        mph
+      </text>
+    </svg>
+  )
+}
+
+/** Current wind: the gust is the one hero number on screen, with its band; the dial holds the sustained wind. */
+export function NowWind({ current }: { current: Current }) {
   const { gustMph, speedMph, dirDeg, sources, status } = current
   // When some values are measured, say which ones are not. A point with no station is labelled once, at the top.
   const note = (source: 'station' | 'model') => status === 'station' && source === 'model'
   const band = bandForGust(gustMph)
-  // Stations send gusts late. Say so when the gust on screen is not recent.
-  const gustIsOld = current.gustAt !== null && now - Date.parse(current.gustAt) > OBSERVATION_LIVE_MS
   return (
-    <section className="widget-section wind" aria-labelledby="wind-heading">
-      <h3 id="wind-heading" className="section-label">
-        Gusts now{note(sources.gust) ? ', forecast' : ''}
-      </h3>
+    <section className="widget-section wind" aria-labelledby="wind-heading" data-band={band.id}>
       <div className="wind-main">
-        <p className="hero" aria-label={`Gusts ${mph(gustMph)} miles per hour`}>
-          {mph(gustMph)}
-          <span className="hero-unit">mph</span>
-        </p>
-        <div className="wind-direction">
-          {/* The dial is drawn in the map's frame, so its arrow matches the beacon's. */}
-          <svg className="dial" width="72" height="72" viewBox="-36 -36 72 72" aria-hidden="true">
-            <circle className="dial-rim" r="21" />
-            <g transform={`rotate(${MAP.northAngle})`}>
-              <path className="dial-tick" d="M0 -21V-16" />
-              <text className="dial-north" y="-29" transform={`rotate(${-MAP.northAngle} 0 -29)`}>
-                N
-              </text>
-            </g>
-            <g transform={`rotate(${windArrowAngle(dirDeg)})`}>
-              <path className="dial-arrow" d="M0 12V-11M-5.5 -5 0 -12 5.5 -5" />
-            </g>
-          </svg>
-          <div>
-            <p className="wind-from wind-from-value" aria-label={`From the ${compassWord(dirDeg)}`}>
-              From {compassPoint(dirDeg)}
-            </p>
-            {note(sources.dir) && <p className="wind-note">Forecast</p>}
-          </div>
+        <div className="wind-gust">
+          <h3 id="wind-heading" className="section-label">
+            Gusts{note(sources.gust) ? ', forecast' : ''}
+          </h3>
+          <p className="hero" aria-label={`Gusts ${mph(gustMph)} miles per hour`}>
+            {mph(gustMph)}
+            <span className="hero-unit">mph</span>
+          </p>
+          <p className="band-word">{band.label}</p>
+        </div>
+        <div className="wind-dial">
+          <WindDial speedMph={speedMph} dirDeg={dirDeg} />
+          <p className="wind-from" aria-hidden="true">
+            From {compassPoint(dirDeg)}
+          </p>
+          {(note(sources.speed) || note(sources.dir)) && <p className="wind-note">Forecast</p>}
         </div>
       </div>
-      <p className="band-line" data-band={band.id}>
-        <span className="band-dot" aria-hidden="true" />
-        {band.label}
-      </p>
-      {gustIsOld && <p className="wind-note">Gust measured {agoLabel(current.gustAt!, now)}</p>}
-      <p className="wind-sustained">
-        Sustained {mph(speedMph)} mph{note(sources.speed) ? ', forecast' : ''}
-      </p>
+      <BandMeter gustMph={gustMph} />
     </section>
   )
 }

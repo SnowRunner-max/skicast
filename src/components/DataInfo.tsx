@@ -4,12 +4,55 @@ import { agoLabel } from '../lib/time'
 import { WIND_BANDS } from '../lib/wind'
 import type { Beacon } from '../types'
 
-/** "calm under 20, windy 20-39, strong 40 and up", built from the band table so the two cannot drift apart. */
-const BAND_KEY = WIND_BANDS.map((band, i) => {
+/** "Under 20 mph", "20-39 mph", "40 mph and up", from the band table so the two cannot drift apart. */
+function bandRange(i: number): string {
+  const band = WIND_BANDS[i]!
   const next = WIND_BANDS[i + 1]
-  const range = next ? (i === 0 ? `under ${next.minGustMph}` : `${band.minGustMph}-${next.minGustMph - 1}`) : `${band.minGustMph} and up`
-  return `${band.short.toLowerCase()} ${range}`
-}).join(', ')
+  if (!next) return `${band.minGustMph} mph and up`
+  return i === 0 ? `Under ${next.minGustMph} mph` : `${band.minGustMph}-${next.minGustMph - 1} mph`
+}
+
+/**
+ * What the colours under the gust mean, one band to a row, each led by a
+ * piece of the band meter. This is also where "upper lifts may hold" lives,
+ * one level below the screen, which shows the band's name alone.
+ */
+function BandKey() {
+  return (
+    <>
+      <p className="band-key-intro">Gust bands, a rough guide for riders:</p>
+      <ul className="band-key">
+        {WIND_BANDS.map((band, i) => (
+          <li key={band.id} data-band={band.id}>
+            <span className="band-key-swatch" aria-hidden="true" />
+            <span className="band-key-name">{band.label}</span>{' '}
+            <span className="band-key-range">
+              {bandRange(i)}
+              {band.lifts && `, ${band.lifts}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+/** Who the data is from. Shown once, at the foot of the info dialog. */
+export function Credits() {
+  return (
+    <p className="credits">
+      Forecast and station readings from the{' '}
+      <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">
+        National Weather Service
+      </a>
+      . Lift data ©{' '}
+      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+        OpenStreetMap contributors
+      </a>
+      .
+    </p>
+  )
+}
 
 const MODEL = `the ${FORECAST_SOURCE.name} forecast`
 
@@ -29,7 +72,7 @@ export function infoWarning(current: Current): string | null {
 
 /** What the info modal says about where this point's numbers come from. */
 export function DataInfo({ beacon, current, now }: { beacon: Beacon; current: Current; now: number }) {
-  const bands = <p>Gust bands in mph: {BAND_KEY}. This is only a rough guide for riders.</p>
+  const bands = <BandKey />
 
   if (current.status === 'pending') {
     return (

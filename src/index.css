@@ -121,7 +121,7 @@ body { overflow: hidden; overscroll-behavior: none; }
 .sky-cloud { fill: var(--bg); }
 
 /* Every icon is line-drawn in the text colour. The arrows on beacons and the dial set their own weight below. */
-.icon-button svg, .wind-arrow, .map-north svg, .warning-glyph {
+.icon-button svg, .wind-arrow, .map-north svg, .warning-glyph, .glyph {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
@@ -225,27 +225,45 @@ body { overflow: hidden; overscroll-behavior: none; }
   pointer-events: none;
 }
 .map-controls { position: absolute; top: 10px; right: max(10px, var(--edge-right)); display: flex; gap: 8px; }
+/* The OpenStreetMap credit, as small as it can be and still read: a corner of the map, haloed against the contour lines. */
 .map-attribution {
   position: absolute;
   left: max(12px, var(--edge-left));
   bottom: 10px;
   margin: 0;
-  font-size: .68rem;
   color: var(--secondary);
+  font-size: .68rem;
+  line-height: 1.2;
   text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 1px 0 0 var(--bg), -1px 0 0 var(--bg);
 }
-.map-attribution a, .widget-footer a { text-decoration: underline; text-underline-offset: 2px; }
+/* Padding cancelled by margin gives the small text a 24px-tall target without moving it. */
+.map-attribution a { display: inline-block; padding: 5px 4px; margin: -5px -4px; }
+.map-attribution a:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---- Widget ---- */
 .widget-card { padding: 24px; }
 .widget-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+/* min-width: 0 lets a long "pinned to" give way to the gust at the sheet's peek stop. */
+.widget-title-text { min-width: 0; }
 .widget-title h2 { font-size: 1.3rem; font-weight: 620; letter-spacing: -.55px; line-height: 1.2; margin: 0; }
-.widget-title p { color: var(--secondary); font-size: .82rem; margin: 3px 0 0; }
-.widget-title .widget-title-gust { font-size: 1.06rem; font-weight: 600; margin: 2px 0 0; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.widget-card .widget-title { margin-bottom: 18px; }
+/* Facts about the spot, each led by a glyph and set apart by space, not run together with commas. */
+.place-facts { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 3px 0 0; padding: 0; list-style: none; color: var(--secondary); font-size: .82rem; line-height: 1.4; }
+.place-facts li { display: flex; align-items: flex-start; gap: 5px; min-width: 0; }
+.place-elevation { flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Centred on the first line of its text, so a fact that wraps keeps its glyph at the top. */
+.glyph { flex: none; width: 15px; height: 15px; margin-top: 2px; }
+/* The sheet's header is a fixed height, so there the facts stay on one line and a long site trails off. */
+.sheet .place-facts { flex-wrap: nowrap; }
+.sheet .place-site span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widget-title-gust { flex: none; margin: 2px 0 0; color: var(--wind); font-size: 1.06rem; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.widget-title-unit { color: var(--secondary); font-size: .82rem; font-weight: 500; }
+.widget-card .widget-title { margin-bottom: 12px; }
 
 .widget-section { border-top: 1px solid var(--line); padding: 15px 0 17px; }
 .section-label { color: var(--secondary); font-size: .82rem; font-weight: 400; margin: 0 0 7px; }
+/* A section's heading with a quiet note at the far end: how old the station's reading is, or where the hours come from. */
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.section-aside { margin: 0; color: var(--secondary); font-size: .76rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* The temperature keeps its natural width and the sky takes the rest, wrapping: "Slight chance of very light snow showers" is a real value. */
 .weather-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(18px, 6vw, 28px); }
 .weather-row p { margin: 0; }
@@ -259,8 +277,9 @@ body { overflow: hidden; overscroll-behavior: none; }
 }
 .weather-detail { display: block; color: var(--secondary); font-size: .82rem; margin-top: 3px; }
 
-/* Wraps, so a three-figure gust on a narrow phone drops the dial to its own line instead of squeezing it. */
-.wind-main { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; }
+/* The gust and its band on the left; the dial, holding the sustained wind, on the right. Both fit a 320px phone with a three-figure gust. */
+.wind-main { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.wind-gust { min-width: 0; }
 .hero {
   display: flex;
   align-items: baseline;
@@ -273,41 +292,50 @@ body { overflow: hidden; overscroll-behavior: none; }
   font-variant-numeric: tabular-nums;
 }
 .hero-unit { margin-left: 10px; font-size: 1.2rem; font-weight: 550; letter-spacing: -.3px; color: var(--secondary); }
-.wind-direction { display: flex; align-items: center; gap: 6px; }
-.wind-from { margin: 0; white-space: nowrap; }
-.wind-from-value { display: block; font-size: 1.06rem; font-weight: 600; white-space: nowrap; }
+/* The band in a word, in its colour. The meter under the row shows where in the band the gust sits. */
+.band-word { margin: 4px 0 0; color: var(--wind); font-size: 1rem; font-weight: 600; }
+.wind-dial { flex: none; display: flex; flex-direction: column; align-items: center; }
 .dial { flex: none; }
 .dial-rim { fill: none; stroke: var(--line); stroke-width: 1.5; }
 .dial-tick { fill: none; stroke: var(--secondary); stroke-width: 1.5; stroke-linecap: round; }
 .dial-north { font-size: 10px; font-weight: 600; fill: var(--secondary); text-anchor: middle; dominant-baseline: central; }
 .dial-arrow { fill: none; stroke: var(--text); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.wind-sustained { margin: 4px 0 0; color: var(--secondary); font-size: .88rem; font-variant-numeric: tabular-nums; }
-.band-line { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-size: 1rem; font-weight: 550; color: var(--wind); }
-.band-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.dial-tail { fill: var(--text); }
+/* The sustained wind, sized like the other values in the card (1.3rem at 17px) so it reads as second to the gust. */
+.dial-speed { fill: var(--text); font-size: 22px; font-weight: 650; letter-spacing: -.5px; text-anchor: middle; font-variant-numeric: tabular-nums; }
+.dial-unit { fill: var(--secondary); font-size: 10px; font-weight: 500; text-anchor: middle; }
+.wind-from { margin: 0; font-size: .88rem; font-weight: 600; white-space: nowrap; }
 
-.hours-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.hours-key { color: var(--secondary); font-size: .76rem; margin: 0; }
-/* Column count is set inline by SixHourWind. minmax(0, 1fr) there lets six columns shrink to fit a 320px phone. */
-.hours { display: grid; list-style: none; margin: 4px 0 0; padding: 0; border-radius: 12px; overflow: hidden; }
-.hour {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  padding: 9px 0 10px;
-  border-top: 3px solid var(--wind);
-  background: color-mix(in srgb, var(--wind) 12%, var(--surface));
-}
-.hour + .hour { border-left: 1px solid var(--surface); }
-.hour-time { color: var(--secondary); font-size: .76rem; white-space: nowrap; }
-.hour-gust { font-size: 1.12rem; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
-.hour-speed { color: var(--secondary); font-size: .76rem; font-variant-numeric: tabular-nums; }
-.peak-line { margin: 12px 0 0; font-size: .94rem; font-weight: 550; font-variant-numeric: tabular-nums; }
+/*
+ * The band meter: a thin bar split at the band cutoffs, with the gust's band
+ * at full strength, the others faint, and a marker at the gust. It takes the
+ * place of a coloured dot, so the band reads from position as well as colour.
+ */
+.band-meter { position: relative; display: flex; gap: 3px; height: 6px; margin: 14px 0 3px; }
+.band-meter-segment { flex: 1 1 0; border-radius: 2px; background: var(--wind); opacity: .3; }
+.band-meter-segment[data-current] { opacity: 1; }
+.band-meter-marker { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--surface); border-radius: 50%; background: var(--text); }
+
+/*
+ * Columns on the card itself, like an hourly forecast: time, gust, then the
+ * arrow with the sustained wind. No cell fills or stripes; the band's colour
+ * is on the gust and nowhere else. Column count is set inline by SixHourWind;
+ * minmax(0, 1fr) there lets six columns shrink to fit a 320px phone.
+ */
+.hours { display: grid; list-style: none; margin: 8px 0 0; padding: 0; }
+.hour { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.hour-time { color: var(--secondary); font-size: .76rem; line-height: 1.2; white-space: nowrap; }
+.hour-gust { color: var(--wind); font-size: 1.18rem; font-weight: 650; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.hour-wind { display: flex; align-items: center; gap: 1px; color: var(--secondary); font-size: .76rem; line-height: 1.2; font-variant-numeric: tabular-nums; }
+/* Heavier than the 1.7 icon stroke, which thins to a hairline at this size. */
+.hour-wind .wind-arrow { flex: none; stroke-width: 2.4; }
 
 .notice { margin: 0 0 14px; font-size: .88rem; font-weight: 550; }
-.widget-footer { border-top: 1px solid var(--line); padding-top: 6px; color: var(--secondary); font-size: .76rem; line-height: 1.5; }
-.widget-footer p { margin: 0 0 8px; }
-.widget-footer .updated { display: flex; justify-content: space-between; align-items: center; font-size: .82rem; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+/* Last in the panel: when it was updated with a way to refresh, then the way into where the data comes from. */
+.widget-footer { display: flex; flex-direction: column; align-items: flex-start; border-top: 1px solid var(--line); padding-top: 4px; color: var(--secondary); font-size: .82rem; }
+.widget-footer .updated { display: flex; justify-content: space-between; align-items: center; align-self: stretch; margin: 0; font-variant-numeric: tabular-nums; }
+.about-button { display: flex; align-items: center; gap: 6px; }
+.about-button .glyph { width: 17px; height: 17px; margin-top: 0; }
 /* Looks like a link, but is 44px tall so it is as easy to hit as a button. */
 .text-button { min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--blue); font-weight: 550; }
 .text-button:disabled { color: var(--secondary); cursor: default; }
@@ -316,14 +344,21 @@ body { overflow: hidden; overscroll-behavior: none; }
 .primary-button:disabled { opacity: .6; cursor: default; }
 
 /* ---- Where the numbers come from ---- */
-.source-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: -6px 0 6px; }
-.source-row .text-button { flex: none; white-space: nowrap; }
-.source-line { display: flex; align-items: center; gap: 7px; min-width: 0; margin: 0; color: var(--secondary); font-size: .82rem; font-variant-numeric: tabular-nums; }
-.source-line[data-source="model"] { color: var(--amber); font-weight: 550; }
+/*
+ * A line of its own under the title, only when the numbers are not a station's
+ * (no fresh reading, or the first one still on its way). A reporting station
+ * needs none: the title says where it stands and the weather's heading how old it is.
+ */
+.source { display: flex; align-items: flex-start; gap: 7px; margin: 0 0 14px; color: var(--secondary); font-size: .82rem; line-height: 1.4; }
+.source .glyph, .source .warning-glyph { width: 16px; height: 16px; margin-top: 1.5px; }
+.source-text { min-width: 0; font-weight: 550; }
+.source[data-source="pending"] .source-text { font-weight: 400; }
+.source[data-source="model"] { color: var(--amber); }
+/* In the sheet the line sits closer to the header, which already ends in padding. */
+.sheet-body .source { margin-top: -2px; }
 .warning-glyph { flex: none; width: 16px; height: 16px; stroke-width: 1.9; }
 .beacon-warning { width: 12px; height: 12px; margin-right: 3px; vertical-align: -1px; color: var(--amber); }
 .wind-note { margin: 1px 0 0; color: var(--secondary); font-size: .76rem; }
-.hours-legend { margin: 2px 0 8px; }
 
 /*
  * The dialog is never taller than the screen. The backdrop is one grid row of
@@ -359,6 +394,16 @@ body { overflow: hidden; overscroll-behavior: none; }
 .modal-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .modal-body p { margin: 0 0 12px; font-size: .94rem; line-height: 1.5; }
 .modal-close { flex: none; width: 100%; margin-top: 6px; }
+/* One band to a row, sharing columns so the ranges line up; each led by a piece of the band meter. */
+.modal-body .band-key-intro { margin-bottom: 6px; }
+.band-key { display: grid; grid-template-columns: auto auto 1fr; row-gap: 4px; column-gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; font-size: .94rem; line-height: 1.4; }
+.band-key li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: baseline; }
+/* On the first line of its row (half a line down, less half its height), so a row that wraps keeps it at the top. */
+.band-key-swatch { align-self: start; width: 14px; height: 6px; margin-top: calc(.7em - 3px); border-radius: 2px; background: var(--wind); }
+.band-key-name { font-weight: 600; }
+.band-key-range { color: var(--secondary); }
+.modal-body .credits { margin: 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--secondary); font-size: .82rem; }
+.credits a { text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---- Bottom sheet (the sheet layout) ---- */
 .sheet {
@@ -476,5 +521,6 @@ body { overflow: hidden; overscroll-behavior: none; }
 @media (forced-colors: active) {
   .beacon-dot { stroke: CanvasText; }
   .beacon-ring { stroke: Highlight; }
-  .hour { border: 1px solid CanvasText; }
+  .band-meter-segment, .band-key-swatch { border: 1px solid CanvasText; }
+  .band-meter-marker { forced-color-adjust: none; background: CanvasText; border-color: Canvas; }
 }

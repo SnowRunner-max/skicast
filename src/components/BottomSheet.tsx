@@ -4,9 +4,13 @@ import { FORECAST_ROW_PX } from './MountainForecastBar'
 export type Snap = 'peek' | 'half' | 'full'
 
 /** The drag handle and the title row. Set as an inline height below, so CSS has no second copy to keep in step. */
-const HEADER_PX = 84
-/** At the peek stop the header shows, with a sliver of the body so the sheet reads as something to pull up. */
-const PEEK_PX = HEADER_PX + 8
+export const HEADER_PX = 84
+/**
+ * At the peek stop the header shows and nothing else: the body starts exactly
+ * at the fold, so no half-cut line shows under the title, whichever beacon is
+ * open. The grabber already says the sheet pulls up.
+ */
+const PEEK_PX = HEADER_PX
 /**
  * Room left above a fully open sheet: the 56px toolbar, the Mountain Forecast
  * row under it and its border, plus a strip of map so the sheet still looks
@@ -16,10 +20,10 @@ const PEEK_PX = HEADER_PX + 8
  */
 const TOOLBAR_CLEARANCE_PX = 68 + FORECAST_ROW_PX
 /**
- * The resting stop is 46% of the screen: enough for the title, where the
- * numbers come from and the temperature, while the map keeps the larger half.
- * The floor is the least those three fit in; it only wins below about 520px
- * of height. Keep it low: a small phone's browser viewport is around 550px
+ * The resting stop is 46% of the screen: enough for the title, any warning
+ * about where the numbers come from and the temperature, while the map keeps
+ * the larger half. The floor is the least those fit in; it only wins below
+ * about 520px of height. Keep it low: a small phone's browser viewport is around 550px
  * tall (an iPhone SE in Safari), and every pixel of floor above 46% comes
  * straight out of a map that is already a thin strip there.
  * The ceiling stops a tall tablet from opening a mostly empty sheet.
@@ -48,7 +52,7 @@ interface Props {
 
 /**
  * The phone layout's widget container: a sheet over the map that rests half
- * open, drags up to full height and down to a one-line peek.
+ * open, drags up to full height and down to a peek at its title alone.
  */
 export function BottomSheet({ header, children, onSettle }: Props) {
   const [viewport, setViewport] = useState(() => window.innerHeight)

@@ -165,8 +165,10 @@ describe('App', () => {
     stubFetch(ok)
     render(<App />)
 
-    const bar = await screen.findByRole('region', { name: /Mountain forecast/ })
+    // Headed by where it is for, in a word; the source and "sustained, not gusts" are in its description.
+    const bar = await screen.findByRole('region', { name: 'Mountain forecast Summit' })
     expect(screen.getByRole('banner')).toContainElement(bar)
+    expect(bar).toHaveAccessibleDescription(/National Weather Service\. Wind is sustained wind at the summit, not gusts\.$/)
     const slots = within(bar).getAllByRole('listitem')
     expect(slots).toHaveLength(5)
     // The summit square's sustained wind, not its gusts (24 mph): 17.7 now, then 17.9, 17.9, 17.4, 16.8.
@@ -185,11 +187,15 @@ describe('App', () => {
     expect(within(bar).getByText(/^Now: .*, wind 12 mph\.$/)).toBeInTheDocument()
   })
 
-  it('credits OpenStreetMap on the map', async () => {
+  it('credits OpenStreetMap on the map itself, and again with the other sources in About this data', async () => {
     stubFetch(ok)
     render(<App />)
     await screen.findByRole('button', { name: /^Summit, gusts/ })
-    expect(screen.getAllByRole('link', { name: 'OpenStreetMap contributors' })[0]).toHaveAttribute(
+    // OSMF's guidelines want the credit with the map, readable without a tap.
+    expect(screen.getByRole('link', { name: '© OpenStreetMap' })).toHaveAttribute('href', 'https://www.openstreetmap.org/copyright')
+
+    await userEvent.click(screen.getByRole('button', { name: 'About this data' }))
+    expect(within(screen.getByRole('dialog')).getByRole('link', { name: 'OpenStreetMap contributors' })).toHaveAttribute(
       'href',
       'https://www.openstreetmap.org/copyright',
     )

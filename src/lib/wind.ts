@@ -1,5 +1,3 @@
-import type { WindHour } from '../types'
-
 /**
  * Wind bands, by gust speed in mph. Rough guides for riders, not Mammoth's
  * rules for running lifts. Change the cutoffs here and nowhere else.
@@ -10,17 +8,27 @@ export interface WindBand {
   id: WindBandId
   /** Lowest gust (mph, inclusive) in this band. */
   minGustMph: number
-  /** One word, shown on the map key and hourly cells. */
-  short: string
-  /** Full label shown in the widget. */
+  /** One word, shown under the gust and read out for each hour. */
   label: string
+  /** What the band can mean for the lifts, for the band key in the info dialog; empty when there is nothing to say. */
+  lifts: string
 }
 
 export const WIND_BANDS: readonly WindBand[] = [
-  { id: 'calm', minGustMph: 0, short: 'Calm', label: 'Calm' },
-  { id: 'windy', minGustMph: 20, short: 'Windy', label: 'Windy, upper lifts may hold' },
-  { id: 'strong', minGustMph: 40, short: 'Strong', label: 'Strong, expect upper-mountain holds' },
+  { id: 'calm', minGustMph: 0, label: 'Calm', lifts: '' },
+  { id: 'windy', minGustMph: 20, label: 'Windy', lifts: 'upper lifts may hold' },
+  { id: 'strong', minGustMph: 40, label: 'Strong', lifts: 'expect upper-mountain holds' },
 ]
+
+/**
+ * Top of the band meter's scale: the last band drawn as wide as the one
+ * before it (60 mph for cutoffs of 20 and 40). Gusts above it sit at the end.
+ */
+export const BAND_SCALE_MAX_MPH = (() => {
+  const last = WIND_BANDS[WIND_BANDS.length - 1]!.minGustMph
+  const before = WIND_BANDS[WIND_BANDS.length - 2]?.minGustMph ?? 0
+  return last + (last - before)
+})()
 
 export function bandForGust(gustMph: number): WindBand {
   let band = WIND_BANDS[0]!
@@ -65,13 +73,6 @@ export function compassWord(deg: number): string {
 /** Compass bearing the wind is blowing toward. */
 export function blowingToward(dirFromDeg: number): number {
   return (dirFromDeg + 180) % 360
-}
-
-/** The hour with the highest gust; the earliest one wins a tie. */
-export function peakGust(hours: readonly WindHour[]): WindHour | null {
-  let peak: WindHour | null = null
-  for (const h of hours) if (!peak || h.gustMph > peak.gustMph) peak = h
-  return peak
 }
 
 /** Whole mph, the way every number is shown. */

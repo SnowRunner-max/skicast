@@ -4,7 +4,8 @@ import type { Current } from '../lib/current'
 import { bandForGust, mph } from '../lib/wind'
 import type { Beacon, BeaconForecast } from '../types'
 import { BottomSheet, type Snap } from './BottomSheet'
-import { DataInfo, infoWarning } from './DataInfo'
+import { Credits, DataInfo, infoWarning } from './DataInfo'
+import { ElevationGlyph, InfoGlyph, StationGlyph } from './Glyphs'
 import { InfoDialog } from './InfoDialog'
 import { NowWeather } from './NowWeather'
 import { NowWind } from './NowWind'
@@ -29,25 +30,67 @@ interface Props {
 /** Past this age a forecast that failed to refresh is called out as old. */
 const STALE_MS = 20 * 60 * 1000
 
-/** The beacon's name and where it is. At the sheet's peek stop it also carries the gust, since nothing else is on screen. */
+/**
+ * The beacon's name, then two facts about the spot, each led by a glyph: how
+ * high it is, and where its weather station stands. Every point sits on its
+ * station, so that one fact says both where the point is and what measures it.
+ * At the sheet's peek stop it also carries the gust, in its band colour, since
+ * nothing else is on screen.
+ */
 function Title({ beacon, current, snap }: { beacon: Beacon; current: Current | null; snap?: Snap }) {
   const band = current ? bandForGust(current.gustMph) : null
   return (
     <div className="widget-title">
-      <div>
+      <div className="widget-title-text">
         <h2>{beacon.name}</h2>
-        <p>
-          {beacon.weatherStation.elevationFt.toLocaleString('en-US')} ft, {beacon.pinnedTo}
-        </p>
+        <ul className="place-facts">
+          <li className="place-elevation">
+            <ElevationGlyph />
+            <span className="sr-only">Elevation </span>
+            {beacon.weatherStation.elevationFt.toLocaleString('en-US')} ft
+          </li>
+          <li className="place-site">
+            <StationGlyph />
+            <span className="sr-only">Weather station: </span>
+            <span>{beacon.pinnedTo}</span>
+          </li>
+        </ul>
       </div>
       {snap === 'peek' && current && band && (
-        <p className="widget-title-gust band-line" data-band={band.id} aria-hidden="true">
-          <span className="band-dot" />
-          {mph(current.gustMph)} mph
+        <p className="widget-title-gust" data-band={band.id} aria-hidden="true">
+          {mph(current.gustMph)}
+          <span className="widget-title-unit"> mph</span>
         </p>
       )}
     </div>
   )
+}
+
+/**
+ * A line of its own under the title, only when the numbers are not a
+ * station's: a warning when no station has anything fresh, or a note while the
+ * first readings are on their way. A reporting station needs no line here: the
+ * title already says where it stands, and the weather's heading says how old
+ * its reading is.
+ */
+function SourceNotice({ current }: { current: Current }) {
+  if (current.status === 'model') {
+    return (
+      <p className="source" data-source="model">
+        <WarningGlyph />
+        <span className="source-text">{infoWarning(current)}</span>
+      </p>
+    )
+  }
+  if (current.status === 'pending') {
+    return (
+      <p className="source" data-source="pending">
+        <StationGlyph />
+        <span className="source-text">Checking the weather station…</span>
+      </p>
+    )
+  }
+  return null
 }
 
 export function BeaconWidget({ beacon, forecast, current, loading, error, now, onRefresh, variant, onSheetSettle }: Props) {
@@ -57,6 +100,8 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
   let body: ReactNode
   if (forecast && current) {
     const warning = infoWarning(current)
+    // It stands in for the gust's age too, which can be a little older (see README).
+    const readingAge = current.status === 'station' ? agoLabel(current.observedAt ?? forecast.fetchedAt, now) : null
     body = (
       <>
         {error && ageMs > STALE_MS && (
@@ -64,25 +109,9 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
             Couldn't refresh. This is the forecast from {agoLabel(forecast.fetchedAt, now)}.
           </p>
         )}
-        <div className="source-row">
-          <p className="source-line" data-source={current.status}>
-            {current.status === 'model' && <WarningGlyph />}
-            {current.status === 'station' &&
-              `Measured at ${current.stations.map((s) => s.name).join(' and ')}, ${agoLabel(current.observedAt ?? forecast.fetchedAt, now)}`}
-            {current.status === 'model' && warning}
-            {current.status === 'pending' && 'Checking the weather station…'}
-          </p>
-          <button type="button" className="text-button" onClick={() => setInfoOpen(true)}>
-            About this data
-          </button>
-        </div>
-        {infoOpen && (
-          <InfoDialog title="About this data" warning={warning ?? undefined} onClose={() => setInfoOpen(false)}>
-            <DataInfo beacon={beacon} current={current} now={now} />
-          </InfoDialog>
-        )}
-        <NowWeather current={current} />
-        <NowWind current={current} now={now} />
+        <SourceNotice current={current} />
+        <NowWeather current={current} readingAge={readingAge} />
+        <NowWind current={current} />
         <SixHourWind forecast={forecast} />
         <footer className="widget-footer">
           <p className="updated">
@@ -91,18 +120,17 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
               Refresh
             </button>
           </p>
-          <p>
-            Forecast and station readings from the{' '}
-            <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">
-              National Weather Service
-            </a>
-            . Lift data ©{' '}
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-              OpenStreetMap contributors
-            </a>
-            .
-          </p>
+          <button type="button" className="text-button about-button" onClick={() => setInfoOpen(true)}>
+            <InfoGlyph />
+            About this data
+          </button>
         </footer>
+        {infoOpen && (
+          <InfoDialog title="About this data" warning={warning ?? undefined} onClose={() => setInfoOpen(false)}>
+            <DataInfo beacon={beacon} current={current} now={now} />
+            <Credits />
+          </InfoDialog>
+        )}
       </>
     )
   } else if (error) {
