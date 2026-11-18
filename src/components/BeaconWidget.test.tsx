@@ -52,8 +52,8 @@ function renderWidget(overrides: Partial<Parameters<typeof BeaconWidget>[0]> = {
   return { onRefresh }
 }
 
-/** The line saying where the numbers come from, found by the label it carries for screen readers. */
-const sourceLine = () => screen.getByText('Source:').closest('p')!
+/** The station reading's age at the end of the weather's heading, found by the word it carries for screen readers. */
+const readingAge = () => within(screen.getByRole('region', { name: 'Weather now' })).getByText('Measured').closest('p')!
 
 /** The band key in the info dialog, one row per band. */
 const bandKeyRows = (dialog: HTMLElement) =>
@@ -62,11 +62,13 @@ const bandKeyRows = (dialog: HTMLElement) =>
     .map((li) => li.textContent)
 
 describe('BeaconWidget', () => {
-  it('names the beacon, then its height and what it is pinned to as separate facts', () => {
+  it('names the beacon, then its height and where its weather station stands as separate facts', () => {
     renderWidget()
     expect(screen.getByRole('heading', { name: 'Summit' })).toBeInTheDocument()
     expect(screen.getByText('11,053 ft')).toBeInTheDocument()
-    expect(screen.getByText('Panorama Gondola top station')).toBeInTheDocument()
+    expect(screen.getByText('Panorama Gondola top station').closest('li')).toHaveTextContent(
+      'Weather station: Panorama Gondola top station',
+    )
   })
 
   it('shows current weather', () => {
@@ -163,7 +165,7 @@ describe('BeaconWidget', () => {
 
     it('shows the station reading and how old it is, and leads with the measured values', () => {
       renderWidget({ beacon: mccoy.beacon, forecast: mccoy, current: resolveCurrent(mccoy, at(mccoyStation)) })
-      expect(sourceLine()).toHaveTextContent('Source: McCoy Station, 3 min ago')
+      expect(readingAge()).toHaveTextContent('Measured 3 min ago')
       expect(screen.queryByText(/Measured at/)).not.toBeInTheDocument()
       expect(screen.getByLabelText('Gusts 9 miles per hour')).toBeInTheDocument()
       expect(screen.getByText('27°F')).toBeInTheDocument()
@@ -176,8 +178,10 @@ describe('BeaconWidget', () => {
       renderWidget({ current: resolveCurrent(summit, at(summitStation)) })
       expect(screen.getByLabelText('Gusts 37 miles per hour')).toBeInTheDocument()
       // The gust is 100 minutes old against a 3-minute reading; only the reading's age is shown.
-      expect(sourceLine()).toHaveTextContent('Source: Top Station, 3 min ago')
+      expect(readingAge()).toHaveTextContent('Measured 3 min ago')
       expect(screen.queryByText(/Gust measured/)).not.toBeInTheDocument()
+      // The point sits on the station, so the title's location already says where it is; it is not named again.
+      expect(screen.queryByText('Top Station')).not.toBeInTheDocument()
       expect(screen.getByRole('img', { name: 'Sustained wind 18 miles per hour from the southwest' })).toBeInTheDocument()
       expect(screen.getByText('Forecast')).toBeInTheDocument()
       // Sky is always the forecast's, so it is said once, in the info dialog.
@@ -192,6 +196,7 @@ describe('BeaconWidget', () => {
     it('warns when the station has nothing fresh, in the widget and at the top of the info modal', async () => {
       renderWidget({ beacon: sesame.beacon, forecast: sesame, current: resolveCurrent(sesame, {}) })
       expect(screen.getByText('Not from weather station.')).toBeInTheDocument()
+      expect(screen.queryByText('Measured')).not.toBeInTheDocument()
 
       await userEvent.click(screen.getByRole('button', { name: 'About this data' }))
       const dialog = screen.getByRole('dialog', { name: 'About this data' })
@@ -212,6 +217,7 @@ describe('BeaconWidget', () => {
       renderWidget({ current: resolveCurrent(summit, undefined) })
       expect(screen.queryByText('Not from weather station.')).not.toBeInTheDocument()
       expect(screen.getByText('Checking the weather station…')).toBeInTheDocument()
+      expect(screen.queryByText('Measured')).not.toBeInTheDocument()
     })
 
     it('calls fresh station readings real time, with no warning in the info modal', async () => {
@@ -237,7 +243,9 @@ describe('BeaconWidget', () => {
     it('names both stations when the summit mixes Top Station with its backup, and what each one measured', async () => {
       const tower: Observation = { ...mccoyStation, stationId: 'MTH12', tempF: null, speedMph: 12, dirDeg: 250 }
       renderWidget({ current: resolveCurrent(summit, at(summitStation, tower)) })
-      expect(sourceLine()).toHaveTextContent('Source: Top Station and Gondola 2 Tower 10, 3 min ago')
+      // The panel gives only the reading's age; the info dialog names both stations.
+      expect(readingAge()).toHaveTextContent('Measured 3 min ago')
+      expect(screen.queryByText(/Gondola 2 Tower 10/)).not.toBeInTheDocument()
       expect(screen.getByRole('img', { name: 'Sustained wind 12 miles per hour from the west-southwest' })).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'About this data' }))
       const dialog = screen.getByRole('dialog')
@@ -252,7 +260,7 @@ describe('BeaconWidget', () => {
     it('describes an old reading by its age instead of calling it real time', async () => {
       const old = { ...mccoyStation, observedAt: new Date(fourMinLater - 75 * 60_000).toISOString() }
       renderWidget({ beacon: mccoy.beacon, forecast: mccoy, current: resolveCurrent(mccoy, at(old)) })
-      expect(sourceLine()).toHaveTextContent('Source: McCoy Station, 1 hr ago')
+      expect(readingAge()).toHaveTextContent('Measured 1 hr ago')
       await userEvent.click(screen.getByRole('button', { name: 'About this data' }))
       const dialog = screen.getByRole('dialog')
       expect(dialog).toHaveTextContent("Current weather is the station's latest reading, taken 1 hr ago.")

@@ -165,8 +165,10 @@ describe('App', () => {
     stubFetch(ok)
     render(<App />)
 
-    const bar = await screen.findByRole('region', { name: /Mountain forecast/ })
+    // Headed by where it is for, in a word; the source and "sustained, not gusts" are in its description.
+    const bar = await screen.findByRole('region', { name: 'Mountain forecast Summit' })
     expect(screen.getByRole('banner')).toContainElement(bar)
+    expect(bar).toHaveAccessibleDescription(/National Weather Service\. Wind is sustained wind at the summit, not gusts\.$/)
     const slots = within(bar).getAllByRole('listitem')
     expect(slots).toHaveLength(5)
     // The summit square's sustained wind, not its gusts (24 mph): 17.7 now, then 17.9, 17.9, 17.4, 16.8.

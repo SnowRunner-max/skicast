@@ -5,7 +5,7 @@ import { bandForGust, mph } from '../lib/wind'
 import type { Beacon, BeaconForecast } from '../types'
 import { BottomSheet, type Snap } from './BottomSheet'
 import { Credits, DataInfo, infoWarning } from './DataInfo'
-import { ElevationGlyph, InfoGlyph, PinGlyph, StationGlyph } from './Glyphs'
+import { ElevationGlyph, InfoGlyph, StationGlyph } from './Glyphs'
 import { InfoDialog } from './InfoDialog'
 import { NowWeather } from './NowWeather'
 import { NowWind } from './NowWind'
@@ -31,9 +31,11 @@ interface Props {
 const STALE_MS = 20 * 60 * 1000
 
 /**
- * The beacon's name, then two facts about the spot, each led by a glyph:
- * how high it is and what it sits beside. At the sheet's peek stop it also
- * carries the gust, in its band colour, since nothing else is on screen.
+ * The beacon's name, then two facts about the spot, each led by a glyph: how
+ * high it is, and where its weather station stands. Every point sits on its
+ * station, so that one fact says both where the point is and what measures it.
+ * At the sheet's peek stop it also carries the gust, in its band colour, since
+ * nothing else is on screen.
  */
 function Title({ beacon, current, snap }: { beacon: Beacon; current: Current | null; snap?: Snap }) {
   const band = current ? bandForGust(current.gustMph) : null
@@ -48,7 +50,8 @@ function Title({ beacon, current, snap }: { beacon: Beacon; current: Current | n
             {beacon.weatherStation.elevationFt.toLocaleString('en-US')} ft
           </li>
           <li className="place-site">
-            <PinGlyph />
+            <StationGlyph />
+            <span className="sr-only">Weather station: </span>
             <span>{beacon.pinnedTo}</span>
           </li>
         </ul>
@@ -64,16 +67,18 @@ function Title({ beacon, current, snap }: { beacon: Beacon; current: Current | n
 }
 
 /**
- * Where the numbers on screen come from, as one line of its own: the station
- * and the age of its reading, or a warning when no station has anything fresh.
- * The reading's age stands in for the gust's too, which can be a little older.
+ * A line of its own under the title, only when the numbers are not a
+ * station's: a warning when no station has anything fresh, or a note while the
+ * first readings are on their way. A reporting station needs no line here: the
+ * title already says where it stands, and the weather's heading says how old
+ * its reading is.
  */
-function Source({ current, forecast, now }: { current: Current; forecast: BeaconForecast; now: number }) {
+function SourceNotice({ current }: { current: Current }) {
   if (current.status === 'model') {
     return (
       <p className="source" data-source="model">
         <WarningGlyph />
-        <span className="source-name">{infoWarning(current)}</span>
+        <span className="source-text">{infoWarning(current)}</span>
       </p>
     )
   }
@@ -81,19 +86,11 @@ function Source({ current, forecast, now }: { current: Current; forecast: Beacon
     return (
       <p className="source" data-source="pending">
         <StationGlyph />
-        <span className="source-name">Checking the weather station…</span>
+        <span className="source-text">Checking the weather station…</span>
       </p>
     )
   }
-  return (
-    <p className="source" data-source="station">
-      <StationGlyph />
-      <span className="sr-only">Source: </span>
-      <span className="source-name">{current.stations.map((s) => s.name).join(' and ')}</span>
-      <span className="sr-only">, </span>
-      <span className="source-age">{agoLabel(current.observedAt ?? forecast.fetchedAt, now)}</span>
-    </p>
-  )
+  return null
 }
 
 export function BeaconWidget({ beacon, forecast, current, loading, error, now, onRefresh, variant, onSheetSettle }: Props) {
@@ -103,6 +100,8 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
   let body: ReactNode
   if (forecast && current) {
     const warning = infoWarning(current)
+    // It stands in for the gust's age too, which can be a little older (see README).
+    const readingAge = current.status === 'station' ? agoLabel(current.observedAt ?? forecast.fetchedAt, now) : null
     body = (
       <>
         {error && ageMs > STALE_MS && (
@@ -110,8 +109,8 @@ export function BeaconWidget({ beacon, forecast, current, loading, error, now, o
             Couldn't refresh. This is the forecast from {agoLabel(forecast.fetchedAt, now)}.
           </p>
         )}
-        <Source current={current} forecast={forecast} now={now} />
-        <NowWeather current={current} />
+        <SourceNotice current={current} />
+        <NowWeather current={current} readingAge={readingAge} />
         <NowWind current={current} />
         <SixHourWind forecast={forecast} />
         <footer className="widget-footer">

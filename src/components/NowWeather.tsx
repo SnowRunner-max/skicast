@@ -12,16 +12,28 @@ function precipText(inches: number): string {
  * Temperature is measured when the point has a station; sky, precipitation and
  * clouds are never measured there, so they are always the forecast's. That is
  * true of every point, so it is said once, in the info dialog, not here.
+ * While a station is reporting, the heading also carries the age of its
+ * reading at the far end, the way the hourly strip's heading carries its
+ * source. As the first thing under the title, it stands for every measured
+ * value on the panel.
  */
-export function NowWeather({ current }: { current: Current }) {
+export function NowWeather({ current, readingAge }: { current: Current; readingAge: string | null }) {
   const { tempF, feelsF, sky, precipIn, cloudPct, sources, status } = current
   // A station that sends no temperature is the exception, so that one is marked where it shows.
   const mixed = status === 'station'
   return (
     <section className="widget-section weather" aria-labelledby="weather-heading">
-      <h3 id="weather-heading" className="section-label">
-        Weather now
-      </h3>
+      <div className="section-head">
+        <h3 id="weather-heading" className="section-label">
+          Weather now
+        </h3>
+        {readingAge && (
+          <p className="section-aside">
+            <span className="sr-only">Measured </span>
+            {readingAge}
+          </p>
+        )}
+      </div>
       <div className="weather-row">
         <p className="weather-temp">
           <span className="weather-temp-value">{Math.round(tempF)}°F</span>

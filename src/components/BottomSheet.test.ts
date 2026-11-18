@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { snapHeights } from './BottomSheet'
+import { HEADER_PX, snapHeights } from './BottomSheet'
 
 describe('snapHeights', () => {
   // Browser viewport heights, not screen heights: a phone's own toolbars take 100px or more.
@@ -9,6 +9,10 @@ describe('snapHeights', () => {
     const { peek, half, full } = snapHeights(h)
     expect(peek).toBeLessThan(half)
     expect(half).toBeLessThanOrEqual(full)
+  })
+
+  it.each(phones)('peeks at the header alone at %ipx, so nothing of the body shows under the fold', (h) => {
+    expect(snapHeights(h).peek).toBe(HEADER_PX)
   })
 
   it('rests at 46% of the screen on an ordinary phone', () => {

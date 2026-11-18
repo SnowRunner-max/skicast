@@ -14,11 +14,11 @@ export function SixHourWind({ forecast }: { forecast: BeaconForecast }) {
   // The grid can run out before six hours are up (parseGrid drops hours with no wind), so count what is there.
   const hours = forecast.next6
   const heading = (
-    <div className="hours-heading">
+    <div className="section-head">
       <h3 id="hours-heading" className="section-label">
         Next {hours.length > 0 ? hours.length : 6} hours
       </h3>
-      {hours.length > 0 && <p className="hours-source">{FORECAST_SOURCE.short} forecast</p>}
+      {hours.length > 0 && <p className="section-aside">{FORECAST_SOURCE.short} forecast</p>}
     </div>
   )
   if (hours.length === 0) {

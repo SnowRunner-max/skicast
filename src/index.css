@@ -247,6 +247,9 @@ body { overflow: hidden; overscroll-behavior: none; }
 
 .widget-section { border-top: 1px solid var(--line); padding: 15px 0 17px; }
 .section-label { color: var(--secondary); font-size: .82rem; font-weight: 400; margin: 0 0 7px; }
+/* A section's heading with a quiet note at the far end: how old the station's reading is, or where the hours come from. */
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.section-aside { margin: 0; color: var(--secondary); font-size: .76rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* The temperature keeps its natural width and the sky takes the rest, wrapping: "Slight chance of very light snow showers" is a real value. */
 .weather-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: clamp(18px, 6vw, 28px); }
 .weather-row p { margin: 0; }
@@ -299,8 +302,6 @@ body { overflow: hidden; overscroll-behavior: none; }
 .band-meter-segment[data-current] { opacity: 1; }
 .band-meter-marker { position: absolute; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border: 2px solid var(--surface); border-radius: 50%; background: var(--text); }
 
-.hours-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.hours-source { color: var(--secondary); font-size: .76rem; margin: 0; }
 /*
  * Columns on the card itself, like an hourly forecast: time, gust, then the
  * arrow with the sustained wind. No cell fills or stripes; the band's colour
@@ -329,13 +330,16 @@ body { overflow: hidden; overscroll-behavior: none; }
 .primary-button:disabled { opacity: .6; cursor: default; }
 
 /* ---- Where the numbers come from ---- */
-/* A line of its own under the title: a glyph, the station, and the age of its reading at the far end. */
+/*
+ * A line of its own under the title, only when the numbers are not a station's
+ * (no fresh reading, or the first one still on its way). A reporting station
+ * needs none: the title says where it stands and the weather's heading how old it is.
+ */
 .source { display: flex; align-items: flex-start; gap: 7px; margin: 0 0 14px; color: var(--secondary); font-size: .82rem; line-height: 1.4; }
 .source .glyph, .source .warning-glyph { width: 16px; height: 16px; margin-top: 1.5px; }
-.source-name { min-width: 0; color: var(--text); font-weight: 550; }
-.source-age { flex: none; margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.source[data-source="pending"] .source-name { color: var(--secondary); font-weight: 400; }
-.source[data-source="model"], .source[data-source="model"] .source-name { color: var(--amber); }
+.source-text { min-width: 0; font-weight: 550; }
+.source[data-source="pending"] .source-text { font-weight: 400; }
+.source[data-source="model"] { color: var(--amber); }
 /* In the sheet the line sits closer to the header, which already ends in padding. */
 .sheet-body .source { margin-top: -2px; }
 .warning-glyph { flex: none; width: 16px; height: 16px; stroke-width: 1.9; }
