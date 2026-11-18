@@ -445,6 +445,20 @@ body { overflow: hidden; overscroll-behavior: none; }
 }
 /* Beside the brand there is width to spare, so the hours sit at an even step instead of spreading to fill it. */
 .app:is([data-layout="split"], [data-layout="wide"]) .mf-slots { justify-content: flex-start; gap: clamp(10px, 2vw, 22px); }
+/*
+ * A phone on its side can be as narrow as 540px, too little for the brand, five
+ * hours and the status in one row. The toolbar's own width decides what gives
+ * way, subtitle first: the five hours need about 285px. The status can go
+ * because in this layout the card beside the map says when it was updated and
+ * offers Refresh. Wide is always 1100px or more, so it never gets here.
+ */
+.app[data-layout="split"] .toolbar { container: toolbar / inline-size; }
+@container toolbar (max-width: 690px) {
+  .app[data-layout="split"] .toolbar-brand p { display: none; }
+}
+@container toolbar (max-width: 560px) {
+  .app[data-layout="split"] .toolbar-status { display: none; }
+}
 .app:is([data-layout="split"], [data-layout="wide"]) .layout {
   display: grid;
   grid-template-rows: minmax(0, 1fr);

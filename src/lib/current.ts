@@ -19,7 +19,8 @@ export interface Current {
   /** Sky, precipitation and cloud cover are not measured at the stations, so these are always the model's. */
   sky: string
   precipIn: number
-  cloudPct: number
+  /** Null when the forecast gives no cloud cover. */
+  cloudPct: number | null
   sources: Record<Field, Source>
   /** The station each measured value came from. A beacon with backup stations can mix them. */
   stationFor: Partial<Record<Field, Station>>

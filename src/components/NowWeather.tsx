@@ -43,7 +43,7 @@ export function NowWeather({ current, readingAge }: { current: Current; readingA
         <p className="weather-sky">
           <span className="weather-sky-value">{sky}</span>
           <span className="weather-detail">
-            {precipText(precipIn)}, {Math.round(cloudPct)}% cloud cover
+            {precipText(precipIn)}, {cloudPct === null ? 'cloud cover unknown' : `${Math.round(cloudPct)}% cloud cover`}
           </span>
         </p>
       </div>

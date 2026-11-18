@@ -29,6 +29,8 @@ export type SkyIconId =
   | 'thunder'
   | 'fog'
   | 'windy'
+  /** No cloud cover in the forecast and nothing falling. */
+  | 'unknown'
 
 export interface MountainSlot {
   /** Local mountain hour, "2026-11-15T15:00". */
@@ -91,10 +93,16 @@ export function skyIcon(
   hour: Pick<ForecastHour, 'weather' | 'cloudPct' | 'daylight'>,
   windMph: number,
 ): { icon: SkyIconId; sky: string } {
-  const words = dayWords(skyLabel(hour.weather, hour.cloudPct), hour.daylight)
   const fall = falling(hour.weather)
+  const windy = windMph >= WINDY_SUSTAINED_MPH
+  // An hour the forecast leaves without cloud cover is unknown, never drawn as clear.
+  if (hour.cloudPct === null) {
+    if (fall) return { icon: fall, sky: skyLabel(hour.weather, NaN) }
+    return windy ? { icon: 'windy', sky: 'Windy' } : { icon: 'unknown', sky: 'Sky not forecast' }
+  }
+  const words = dayWords(skyLabel(hour.weather, hour.cloudPct), hour.daylight)
   if (fall) return { icon: fall, sky: words }
-  if (windMph >= WINDY_SUSTAINED_MPH) return { icon: 'windy', sky: `${words} and windy` }
+  if (windy) return { icon: 'windy', sky: `${words} and windy` }
   if (hour.cloudPct < 37.5) return { icon: hour.daylight ? 'clear-day' : 'clear-night', sky: words }
   if (hour.cloudPct < 62.5) return { icon: hour.daylight ? 'partly-day' : 'partly-night', sky: words }
   return { icon: 'cloudy', sky: words }
