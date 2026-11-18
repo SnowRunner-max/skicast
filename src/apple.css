@@ -25,6 +25,13 @@
   --wind-calm: var(--green);
   --wind-windy: var(--amber);
   --wind-strong: var(--danger);
+  /*
+   * The chosen segment of a segmented control (the toolbar's wind and
+   * temperature switch). It has to stand out from the track, which is --line.
+   * Light mode's surface does; dark mode's surface is darker than the track, so
+   * dark takes Apple's own segmented-control thumb grey instead.
+   */
+  --thumb: var(--surface);
 }
 .dark {
   color-scheme: dark;
@@ -39,6 +46,7 @@
   --green-fill: #30d158;
   --danger: #ff6b5e;
   --amber: #ffd088;
+  --thumb: #636366;
 }
 
 * { box-sizing: border-box; }

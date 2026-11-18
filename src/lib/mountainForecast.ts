@@ -44,11 +44,17 @@ export interface MountainSlot {
   windMph: number
   /** Whether the wind was measured at the summit or is the forecast's. The sky is always the forecast's. */
   windSource: Source
+  /** Air temperature at the summit, °F; null for an hour the forecast gives none. */
+  tempF: number | null
+  /** Whether the temperature was measured at the summit or is the forecast's. */
+  tempSource: Source
 }
 
 export interface MountainForecast {
   /** The station the current wind was measured at, when it was measured. */
   windStation: Station | null
+  /** The station the current temperature was measured at, when it was measured. */
+  tempStation: Station | null
   now: MountainSlot
   /** The next hours, up to MOUNTAIN_NEXT_HOURS: fewer when the forecast runs out. */
   next: MountainSlot[]
@@ -110,10 +116,10 @@ export function skyIcon(
 
 /**
  * The Mountain Forecast: this hour and the next four, from the summit's NWS
- * forecast. The current wind is the summit's sustained wind as the Summit
- * beacon shows it (measured when a station has it, otherwise the forecast), so
- * the bar and the Summit card never disagree. Every later hour, and every sky,
- * is the forecast's.
+ * forecast. The current wind and temperature are the summit's as the Summit
+ * beacon shows them (measured when a station has them, otherwise the
+ * forecast), so the bar and the Summit card never disagree. Every later hour,
+ * and every sky, is the forecast's.
  *
  * @param nowMs  Decides sun or moon for the current hour, so the icon turns at sunset rather than on the hour.
  */
@@ -121,11 +127,15 @@ export function mountainForecast(forecast: BeaconForecast, current: Current | nu
   const { lat, lon } = forecast.beacon.weatherStation
   const windMph = current?.speedMph ?? forecast.now.speedMph
   const windSource: Source = current?.sources.speed ?? 'model'
+  const tempF = current?.tempF ?? forecast.now.tempF
+  const tempSource: Source = current?.sources.temp ?? 'model'
   const now: MountainSlot = {
     time: forecast.now.time,
     label: 'Now',
     windMph,
     windSource,
+    tempF,
+    tempSource,
     ...skyIcon({ ...forecast.now, daylight: isDaylight(nowMs, lat, lon) }, windMph),
   }
   const next = forecast.next6.slice(0, MOUNTAIN_NEXT_HOURS).map(
@@ -134,8 +144,16 @@ export function mountainForecast(forecast: BeaconForecast, current: Current | nu
       label: hourLabel(h.time),
       windMph: h.speedMph,
       windSource: 'model',
+      // A forecast saved before hours carried a temperature has none; that hour shows a dash.
+      tempF: h.tempF ?? null,
+      tempSource: 'model',
       ...skyIcon(h, h.speedMph),
     }),
   )
-  return { windStation: windSource === 'station' ? (current?.stationFor.speed ?? null) : null, now, next }
+  return {
+    windStation: windSource === 'station' ? (current?.stationFor.speed ?? null) : null,
+    tempStation: tempSource === 'station' ? (current?.stationFor.temp ?? null) : null,
+    now,
+    next,
+  }
 }

@@ -2,6 +2,7 @@ import sample from './__fixtures__/nws-grid-sample.json'
 import { gridResponse } from './__fixtures__/nwsGrid'
 import { BEACONS } from '../data/beacons'
 import { beaconForecast, buildGridUrl, cellKey, durationMs, fetchForecast, parseGrid } from './nwsForecast'
+import { cToF } from './units'
 
 const summit = BEACONS.find((b) => b.id === 'summit')!
 const cloudNine = BEACONS.find((b) => b.id === 'cloudnine')!
@@ -81,6 +82,12 @@ describe('beaconForecast', () => {
     expect(other.now.tempF).toBeGreaterThan(f.now.tempF) // Cloud Nine's station is lower
   })
 
+  it('moves every later hour up by the same amount, so the hours line up with now', () => {
+    const liftF = f.now.tempF - cToF(grid.hours[0]!.tempC)
+    expect(f.next6).toHaveLength(6)
+    f.next6.forEach((h, i) => expect(h.tempF).toBeCloseTo(cToF(grid.hours[i + 1]!.tempC) + liftF, 5))
+  })
+
   it('works out feels-like from the corrected temperature', () => {
     expect(Math.round(f.now.feelsF)).toBe(5)
   })
@@ -108,6 +115,14 @@ describe('parseGrid (built responses)', () => {
   it('uses the sustained wind for the gust when the grid has none, and never a gust below it', () => {
     const grid = parseGrid(gridResponse(NOW, [{ ...base, gustMph: null }, { ...base, gustMph: 10 }], 3000), NOW)
     expect(grid.hours.map((h) => Math.round(h.gustMph))).toEqual([15, 15])
+  })
+
+  it('leaves an hour without a temperature unknown, and saves it as null', () => {
+    const raw = gridResponse(NOW, [base, { ...base, tempF: 14 }, base], 3000)
+    raw.properties.temperature.values = raw.properties.temperature.values.slice(0, 2)
+    const f = beaconForecast(cloudNine, parseGrid(raw, NOW), 'fetched')
+    const saved = JSON.parse(JSON.stringify(f)) as typeof f
+    expect(saved.next6.map((h) => h.tempF === null)).toEqual([false, true])
   })
 
   it('stops the hours where the forecast does', () => {

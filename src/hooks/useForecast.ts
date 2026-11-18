@@ -6,7 +6,8 @@ import type { BeaconForecast } from '../types'
 import { useVisiblePolling } from './useVisiblePolling'
 
 // v3: each hour also carries its weather, cloud cover and daylight, for the Mountain Forecast.
-const STORAGE_KEY = 'skicast:forecast:v3'
+// v4: and its temperature, for the Mountain Forecast's temperature view.
+const STORAGE_KEY = 'skicast:forecast:v4'
 
 /** Past this age a saved forecast's "next 6 hours" are all behind us, so it is dropped. */
 const MAX_SAVED_AGE_MS = 6 * 60 * 60 * 1000

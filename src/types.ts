@@ -55,6 +55,8 @@ export interface WindHour {
 
 /** One forecast hour: its wind, plus what the sky is doing, for the Mountain Forecast's icons. */
 export interface ForecastHour extends WindHour {
+  /** Air temperature at the station's height, °F. Null when the forecast gives none for the hour. */
+  tempF: number | null
   /** Null when the forecast gives none for the hour: unknown, which is not the same as clear. */
   cloudPct: number | null
   /** The forecast weather for the hour as NWS sends it; empty for none. */
