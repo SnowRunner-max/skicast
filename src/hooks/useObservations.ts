@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { OBSERVATION_TTL_MS } from '../config'
 import { STATIONS } from '../data/stations'
-import { fetchObservations, type ObservationMap } from '../lib/nws'
+import type { ObservationMap } from '../lib/nws'
+import { fetchAllObservations } from '../lib/observations'
 import { useVisiblePolling } from './useVisiblePolling'
 
 /** In-memory cache, shared by every mount in this tab. */
@@ -18,9 +19,11 @@ export interface ObservationState {
 }
 
 /**
- * Live readings from every Mammoth station. These are not saved to localStorage: a reading is
- * only worth showing while it is fresh, and the first answer is a few hundred
- * milliseconds away. A failed fetch leaves each beacon on the forecast.
+ * Live readings from every Mammoth station: Mammoth's own feed first, NWS for
+ * any station it has nothing fresh for (see lib/observations.ts). These are not
+ * saved to localStorage: a reading is only worth showing while it is fresh, and
+ * the first answer is a few hundred milliseconds away. A failed fetch leaves
+ * each beacon on the forecast.
  */
 export function useObservations(): ObservationState {
   const [observations, setObservations] = useState<ObservationMap | undefined>(() => memory?.observations)
@@ -31,7 +34,7 @@ export function useObservations(): ObservationState {
     if (!force && memory && Date.now() - memory.at < OBSERVATION_TTL_MS) return
     const controller = new AbortController()
     inFlight.current = controller
-    fetchObservations(STATIONS, controller.signal)
+    fetchAllObservations(STATIONS, controller.signal)
       .then((result) => {
         memory = { at: Date.now(), observations: result }
         setObservations(result)

@@ -1,5 +1,6 @@
 import { FORECAST_SOURCE, OBSERVATION_LIVE_MS } from '../config'
-import { measuredBy, modeledFields, type Current } from '../lib/current'
+import { modeledFields, type Current } from '../lib/current'
+import { MAMMOTH_STATIONS_SITE } from '../lib/mammoth'
 import { agoLabel } from '../lib/time'
 import { WIND_BANDS } from '../lib/wind'
 import type { Beacon } from '../types'
@@ -41,7 +42,11 @@ function BandKey() {
 export function Credits() {
   return (
     <p className="credits">
-      Forecast and station readings from the{' '}
+      Station readings from{' '}
+      <a href={MAMMOTH_STATIONS_SITE} target="_blank" rel="noreferrer">
+        Mammoth Mountain's weather stations
+      </a>
+      . Forecast, and station readings when Mammoth's are not available, from the{' '}
       <a href="https://www.weather.gov/" target="_blank" rel="noreferrer">
         National Weather Service
       </a>
@@ -101,15 +106,11 @@ export function DataInfo({ beacon, current, now }: { beacon: Beacon; current: Cu
   const fresh = observedAt !== null && now - Date.parse(observedAt) <= OBSERVATION_LIVE_MS
   // Sky, cloud cover and precipitation are never measured at these stations.
   const notMeasured = [...modeledFields(current), 'sky', 'cloud cover', 'precipitation']
-  const label = (s: { name: string; id: string }) => `${s.name} (${s.id})`
-  const several = current.stations.length > 1
-  const measuredAt = several
-    ? `Measured at ${current.stations.length === 2 ? 'two' : current.stations.length} stations, reported through the National Weather Service: ${measuredBy(
-        current,
-      )
-        .map(([station, fields]) => `${list(fields)} at ${label(station)}`)
-        .join(', ')}.`
-    : `Measured at ${label(current.stations[0] ?? beacon.weatherStation)}, reported through the National Weather Service.`
+  const station = current.station ?? beacon.weatherStation
+  const viaNws = current.feed === 'nws'
+  const measuredAt = `Measured at ${station.name} (${station.id}), ${
+    viaNws ? "reported through the National Weather Service while Mammoth's own feed is unavailable" : "one of Mammoth's own weather stations"
+  }.`
   return (
     <>
       <p>
@@ -120,10 +121,10 @@ export function DataInfo({ beacon, current, now }: { beacon: Beacon; current: Cu
       </p>
       <p>
         {measuredAt}
-        {current.sources.gust === 'station' && ' Gusts are the latest the station has sent, which can lag the wind.'}
+        {viaNws && current.sources.gust === 'station' && ' Gusts are the latest the station has sent, which can lag the wind.'}
       </p>
       <p>
-        Not measured at {several ? 'these stations' : 'this station'}, so from {MODEL}: {list(notMeasured)}.
+        Not measured at this station, so from {MODEL}: {list(notMeasured)}.
       </p>
       {bands}
     </>

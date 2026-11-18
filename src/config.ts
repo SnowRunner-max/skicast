@@ -22,7 +22,24 @@ export const FORECAST_TIMEOUT_MS = 10_000
  */
 export const NWS_BASE_URL = 'https://api.weather.gov'
 
-/** NWS caches observations for 5 minutes, so asking more often gains nothing. */
+/**
+ * Where the app reads Mammoth's own station readings: a function on the same
+ * host (netlify/functions/stations.ts) that asks Mammoth's station site and
+ * caches the answer for a minute. Relative, like the rest of the build.
+ */
+export const MAMMOTH_SNAPSHOT_URL = './api/stations'
+
+/** Give up on Mammoth's readings and read NWS instead. Leaves room for the function to wait on Mammoth's site (8 s at most). */
+export const MAMMOTH_TIMEOUT_MS = 10_000
+
+/**
+ * A Mammoth reading at most this old is used without asking NWS. Stations
+ * report every 5 minutes, so an older one means the station has stalled. An
+ * older one is still kept if NWS has nothing newer.
+ */
+export const MAMMOTH_FRESH_MS = 30 * 60 * 1000
+
+/** Station readings are refetched this often: Mammoth's stations report every 5 minutes, and NWS caches for 5. */
 export const OBSERVATION_TTL_MS = 5 * 60 * 1000
 
 /**

@@ -57,7 +57,7 @@ function isReading(value: unknown): value is NwsReading {
  */
 export function parseObservations(raw: unknown, stationId: string, nowMs: number): Observation | null {
   const features = (raw as { features?: unknown })?.features
-  if (!Array.isArray(features)) throw new Error(`NWS response for ${stationId} has no readings`)
+  if (!Array.isArray(features)) throw new Error(`NWS response for station ${stationId} has no readings`)
 
   const readings = features
     .map((f) => (f as { properties?: unknown })?.properties)
@@ -95,6 +95,7 @@ export function parseObservations(raw: unknown, stationId: string, nowMs: number
   const gustMph = gust ? Math.max(gust.value, speedMph ?? 0) : null
   return {
     stationId,
+    source: 'nws',
     observedAt,
     tempF: temp?.value ?? null,
     speedMph,
@@ -123,29 +124,31 @@ export async function fetchJson(url: string, timeoutMs: number, signal?: AbortSi
   }
 }
 
-async function fetchStation(stationId: string, nowMs: number, signal?: AbortSignal): Promise<Observation | null> {
-  const raw = await fetchJson(buildObservationsUrl(stationId), OBSERVATION_TIMEOUT_MS, signal)
-  return parseObservations(raw, stationId, nowMs)
+async function fetchStation(station: Pick<Station, 'id' | 'nwsId'>, nowMs: number, signal?: AbortSignal): Promise<Observation | null> {
+  if (!station.nwsId) return null
+  const raw = await fetchJson(buildObservationsUrl(station.nwsId), OBSERVATION_TIMEOUT_MS, signal)
+  return parseObservations(raw, station.id, nowMs)
 }
 
-/** Observations by station id. A station that failed or has nothing fresh maps to null. */
+/** Observations by Mammoth station id (Station.id). A station that failed or has nothing fresh maps to null. */
 export type ObservationMap = Record<string, Observation | null>
 
 /**
- * One request per station, in parallel. A slow or broken station only loses
- * its own readings; it never holds up the others or the forecast.
+ * One NWS request per station, in parallel, keyed by Mammoth's id. A slow or
+ * broken station only loses its own readings; it never holds up the others or
+ * the forecast. A station NWS does not carry maps to null without a request.
  */
 export async function fetchObservations(
-  stations: readonly Pick<Station, 'id'>[],
+  stations: readonly Pick<Station, 'id' | 'nwsId'>[],
   signal?: AbortSignal,
 ): Promise<ObservationMap> {
   const nowMs = Date.now()
   const entries = await Promise.all(
-    stations.map(async ({ id }) => {
+    stations.map(async (station) => {
       try {
-        return [id, await fetchStation(id, nowMs, signal)] as const
+        return [station.id, await fetchStation(station, nowMs, signal)] as const
       } catch {
-        return [id, null] as const
+        return [station.id, null] as const
       }
     }),
   )

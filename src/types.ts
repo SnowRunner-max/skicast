@@ -7,13 +7,8 @@ export interface Beacon {
   shortName: string
   /** Where the map label sits relative to the dot, chosen by hand to stay clear of lift lines and neighbours. */
   labelSide: 'left' | 'right' | 'below'
-  /** The weather station the beacon is drawn at and reads from first. */
+  /** The weather station the beacon is drawn at and reads from. */
   weatherStation: Station
-  /**
-   * Nearby stations that fill in, value by value and in this order, what the
-   * main station does not send. Only for a neighbour close enough to stand in.
-   */
-  backupStations?: readonly Station[]
   /**
    * The NWS forecast grid square the beacon's station sits in, from
    * api.weather.gov/points/{lat},{lon} (gridId, gridX, gridY). Squares are
@@ -32,8 +27,10 @@ export interface ForecastCell {
 
 /** One of Mammoth's weather stations, as listed in src/data/stations.ts. */
 export interface Station {
-  /** NWS station identifier, e.g. "MTH03". */
+  /** Mammoth's station identifier on its own station site, e.g. "MM-SUM". */
   id: string
+  /** The same station's National Weather Service identifier, e.g. "MTH03", read when Mammoth's own feed has nothing fresh. Null for stations NWS does not carry. */
+  nwsId: string | null
   /** Short name for the station as Mammoth labels it. */
   name: string
   lat: number
@@ -84,7 +81,10 @@ export interface BeaconForecast {
  * sensors for hours (an iced anemometer, a temperature-only unit).
  */
 export interface Observation {
+  /** Mammoth's station id (see Station.id), whichever feed the reading came from. */
   stationId: string
+  /** Mammoth's own station feed, or the National Weather Service's copy of it. */
+  source: 'mammoth' | 'nws'
   /** ISO time of the newest reading that supplied temperature or sustained wind. */
   observedAt: string
   tempF: number | null

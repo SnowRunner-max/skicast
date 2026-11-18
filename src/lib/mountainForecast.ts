@@ -151,8 +151,8 @@ export function mountainForecast(forecast: BeaconForecast, current: Current | nu
     }),
   )
   return {
-    windStation: windSource === 'station' ? (current?.stationFor.speed ?? null) : null,
-    tempStation: tempSource === 'station' ? (current?.stationFor.temp ?? null) : null,
+    windStation: windSource === 'station' ? (current?.station ?? null) : null,
+    tempStation: tempSource === 'station' ? (current?.station ?? null) : null,
     now,
     next,
   }
