@@ -225,6 +225,20 @@ body { overflow: hidden; overscroll-behavior: none; }
   pointer-events: none;
 }
 .map-controls { position: absolute; top: 10px; right: max(10px, var(--edge-right)); display: flex; gap: 8px; }
+/* The OpenStreetMap credit, as small as it can be and still read: a corner of the map, haloed against the contour lines. */
+.map-attribution {
+  position: absolute;
+  left: max(12px, var(--edge-left));
+  bottom: 10px;
+  margin: 0;
+  color: var(--secondary);
+  font-size: .68rem;
+  line-height: 1.2;
+  text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 1px 0 0 var(--bg), -1px 0 0 var(--bg);
+}
+/* Padding cancelled by margin gives the small text a 24px-tall target without moving it. */
+.map-attribution a { display: inline-block; padding: 5px 4px; margin: -5px -4px; }
+.map-attribution a:hover { text-decoration: underline; text-underline-offset: 2px; }
 
 /* ---- Widget ---- */
 .widget-card { padding: 24px; }

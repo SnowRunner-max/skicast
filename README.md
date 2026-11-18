@@ -41,6 +41,8 @@ The app and the script share `src/lib/projection.ts`, and each beacon takes its 
 
 Because the map is rotated, wind arrows are drawn in the map's frame: an arrow shows which way the wind blows across the mountain as you see it on screen. The compass text ("From SW") and the N mark on the dial give the true direction.
 
+OpenStreetMap's attribution guidelines want the credit on the map itself, readable without a tap, so a small "© OpenStreetMap" link sits in its bottom corner (just above the sheet on a phone). The info dialog repeats it with the other sources.
+
 ## Where things live
 
 | To change | Edit |

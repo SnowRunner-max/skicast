@@ -258,7 +258,16 @@ export function MountainMap({ currents, selectedId, onSelect, layout, sheetPx }:
           </svg>
         </button>
       </div>
-      {/* The OpenStreetMap credit is in the info dialog with the other sources, not repeated over the map. */}
+      {/*
+        OSMF's attribution guidelines want the OpenStreetMap credit on the map itself, readable without a tap,
+        so it stays here at its smallest; the info dialog has the full credit with the other sources. Over a
+        sheet it rides just above it; otherwise CSS pins it to the frame's corner.
+      */}
+      <p className="map-attribution" style={layout === 'sheet' ? { bottom: sheetPx + 8 } : undefined}>
+        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+          © OpenStreetMap
+        </a>
+      </p>
     </div>
   )
 }
