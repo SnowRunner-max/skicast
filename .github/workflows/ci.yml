@@ -10,9 +10,12 @@ on:
 permissions:
   contents: read
 
+# github.workflow is the caller's name when deploy.yml calls this, so the
+# standalone run and the deploy's checks never share (and cancel) a group.
+# Only superseded pull request runs are cancelled; pushes to main always finish.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
