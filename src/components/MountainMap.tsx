@@ -258,14 +258,7 @@ export function MountainMap({ currents, selectedId, onSelect, layout, sheetPx }:
           </svg>
         </button>
       </div>
-
-      {/* Over a sheet the credit rides just above it; otherwise CSS pins it to the frame's corner. */}
-      <p className="map-attribution" style={layout === 'sheet' ? { bottom: sheetPx + 8 } : undefined}>
-        Lift data ©{' '}
-        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
-          OpenStreetMap contributors
-        </a>
-      </p>
+      {/* The OpenStreetMap credit is in the info dialog with the other sources, not repeated over the map. */}
     </div>
   )
 }

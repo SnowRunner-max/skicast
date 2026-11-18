@@ -185,11 +185,14 @@ describe('App', () => {
     expect(within(bar).getByText(/^Now: .*, wind 12 mph\.$/)).toBeInTheDocument()
   })
 
-  it('credits OpenStreetMap on the map', async () => {
+  it('credits OpenStreetMap once, in About this data, not over the map', async () => {
     stubFetch(ok)
     render(<App />)
     await screen.findByRole('button', { name: /^Summit, gusts/ })
-    expect(screen.getAllByRole('link', { name: 'OpenStreetMap contributors' })[0]).toHaveAttribute(
+    expect(screen.queryByRole('link', { name: 'OpenStreetMap contributors' })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: 'About this data' }))
+    expect(within(screen.getByRole('dialog')).getByRole('link', { name: 'OpenStreetMap contributors' })).toHaveAttribute(
       'href',
       'https://www.openstreetmap.org/copyright',
     )

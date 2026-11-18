@@ -1,7 +1,4 @@
-import { bandForGust, blowingToward, compassPoint, compassWord, peakGust, WIND_BANDS } from './wind'
-import type { WindHour } from '../types'
-
-const hour = (time: string, gustMph: number): WindHour => ({ time, gustMph, speedMph: gustMph / 2, dirDeg: 270 })
+import { BAND_SCALE_MAX_MPH, bandForGust, blowingToward, compassPoint, compassWord, WIND_BANDS } from './wind'
 
 describe('bandForGust', () => {
   it.each([
@@ -15,12 +12,16 @@ describe('bandForGust', () => {
     expect(bandForGust(gust).id).toBe(id)
   })
 
-  it('uses the labels from the plan', () => {
-    expect(WIND_BANDS.map((b) => b.label)).toEqual([
-      'Calm',
-      'Windy, upper lifts may hold',
-      'Strong, expect upper-mountain holds',
+  it('names each band in one word, with what it can mean for the lifts kept for the info dialog', () => {
+    expect(WIND_BANDS.map((b) => [b.label, b.lifts])).toEqual([
+      ['Calm', ''],
+      ['Windy', 'upper lifts may hold'],
+      ['Strong', 'expect upper-mountain holds'],
     ])
+  })
+
+  it('draws the meter to 60 mph, so the strong band is as wide as the windy one', () => {
+    expect(BAND_SCALE_MAX_MPH).toBe(60)
   })
 })
 
@@ -42,20 +43,5 @@ describe('compass', () => {
   it('wind from the west blows toward the east', () => {
     expect(blowingToward(270)).toBe(90)
     expect(blowingToward(10)).toBe(190)
-  })
-})
-
-describe('peakGust', () => {
-  it('finds the highest gust', () => {
-    const peak = peakGust([hour('2026-11-15T13:00', 31), hour('2026-11-15T15:00', 52), hour('2026-11-15T16:00', 44)])
-    expect(peak?.time).toBe('2026-11-15T15:00')
-  })
-
-  it('keeps the earliest hour on a tie', () => {
-    expect(peakGust([hour('a', 30), hour('b', 30)])?.time).toBe('a')
-  })
-
-  it('returns null for no hours', () => {
-    expect(peakGust([])).toBeNull()
   })
 })

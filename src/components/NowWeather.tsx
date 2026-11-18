@@ -10,10 +10,12 @@ function precipText(inches: number): string {
 /**
  * Current weather: temperature and feels-like, sky, precipitation, cloud cover.
  * Temperature is measured when the point has a station; sky, precipitation and
- * clouds are never measured there, so they are always the forecast's.
+ * clouds are never measured there, so they are always the forecast's. That is
+ * true of every point, so it is said once, in the info dialog, not here.
  */
 export function NowWeather({ current }: { current: Current }) {
   const { tempF, feelsF, sky, precipIn, cloudPct, sources, status } = current
+  // A station that sends no temperature is the exception, so that one is marked where it shows.
   const mixed = status === 'station'
   return (
     <section className="widget-section weather" aria-labelledby="weather-heading">
@@ -31,7 +33,6 @@ export function NowWeather({ current }: { current: Current }) {
           <span className="weather-detail">
             {precipText(precipIn)}, {Math.round(cloudPct)}% cloud cover
           </span>
-          {mixed && <span className="weather-detail">Sky is from the forecast</span>}
         </p>
       </div>
     </section>
