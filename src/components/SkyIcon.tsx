@@ -8,6 +8,9 @@ const MOON = 'M20 14.2A8 8 0 0 1 9.8 4a8 8 0 1 0 10.2 10.2Z'
 /** A cloud about 13 wide and 10 tall, sitting on y = 14. */
 const CLOUD = 'M7 14h10a3.5 3.5 0 0 0 .35-6.98A5 5 0 0 0 7.6 8.1 3 3 0 0 0 7 14Z'
 
+/** Three gusting lines. Also the wind side of the toolbar's wind and temperature switch. */
+export const WIND_PATH = 'M3 9h11.5a2.6 2.6 0 1 0-2.6-2.6M3 13h15.4a2.6 2.6 0 1 1-2.6 2.6M3 17h7'
+
 const cloud = (transform?: string) => <path className="sky-cloud" d={CLOUD} transform={transform} />
 
 /** A six-armed flake centred on (x, y). */
@@ -67,7 +70,7 @@ const SHAPES: Record<SkyIconId, ReactNode> = {
     </>
   ),
   fog: <path d="M4 8.5h16M3 12.5h18M5 16.5h14M8 20.5h8" />,
-  windy: <path d="M3 9h11.5a2.6 2.6 0 1 0-2.6-2.6M3 13h15.4a2.6 2.6 0 1 1-2.6 2.6M3 17h7" />,
+  windy: <path d={WIND_PATH} />,
   // A plain dash, the way a missing number is shown: no sky drawn is better than a guessed one.
   unknown: <path d="M8 12h8" />,
 }

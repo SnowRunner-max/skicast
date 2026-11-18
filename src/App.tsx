@@ -9,6 +9,7 @@ import { useObservations } from './hooks/useObservations'
 import { resolveCurrent, type Current } from './lib/current'
 import { MOUNTAIN_BEACON_ID, mountainForecast } from './lib/mountainForecast'
 import { useLayout } from './hooks/useLayout'
+import { useMeasure } from './hooks/useMeasure'
 import { useNow } from './hooks/useNow'
 import { useTheme } from './hooks/useTheme'
 
@@ -18,6 +19,7 @@ export default function App() {
   const { observations, refresh: refreshObservations } = useObservations()
   const now = useNow()
   const layout = useLayout()
+  const { measure, setMeasure } = useMeasure()
   const [selectedId, setSelectedId] = useState(DEFAULT_BEACON_ID)
   // The map frames itself above the half-open sheet. Pulling the sheet all the
   // way up leaves the map where it was, so it is still there when you come back.
@@ -59,6 +61,8 @@ export default function App() {
         theme={theme}
         onToggleTheme={toggle}
         mountain={mountain}
+        measure={measure}
+        onMeasureChange={setMeasure}
       />
       <main className="layout">
         <div className="map-frame">
@@ -68,6 +72,7 @@ export default function App() {
             onSelect={setSelectedId}
             layout={layout}
             sheetPx={layout === 'sheet' ? sheetPx : 0}
+            measure={measure}
           />
         </div>
         <BeaconWidget

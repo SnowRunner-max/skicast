@@ -187,6 +187,40 @@ describe('App', () => {
     expect(within(bar).getByText(/^Now: .*, wind 12 mph\.$/)).toBeInTheDocument()
   })
 
+  it('switches the toolbar and the map between wind and temperature, and remembers the choice', async () => {
+    stubFetch(ok, stationsReporting)
+    const first = render(<App />)
+    await screen.findByRole('button', { name: 'Summit, gusts 37 mph from the west' })
+
+    // A segmented control in the toolbar, wind first and chosen.
+    const show = within(screen.getByRole('banner')).getByRole('group', { name: 'Show' })
+    expect(within(show).getByRole('button', { name: 'Wind' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(within(show).getByRole('button', { name: 'Temperature' }))
+    expect(within(show).getByRole('button', { name: 'Temperature' })).toHaveAttribute('aria-pressed', 'true')
+
+    // The map: Top Station's -5 °C is 23 °F. Sesame sent nothing, so its temperature is the forecast's.
+    expect(screen.getByRole('button', { name: 'Summit, 23 degrees Fahrenheit' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Top of Eagle, 34 degrees Fahrenheit' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Sesame, -?\d+ degrees Fahrenheit, not from a weather station$/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /gusts/ })).not.toBeInTheDocument()
+
+    // The toolbar: the summit's temperature now, then the forecast's for each hour, each with its degree sign.
+    const bar = screen.getByRole('region', { name: 'Mountain forecast Summit' })
+    expect(bar).toHaveAccessibleDescription(/Temperature is the air at the summit, in degrees Fahrenheit, measured at Top Station\.$/)
+    const slots = within(bar).getAllByRole('listitem')
+    expect(slots[0]).toHaveTextContent(/^Now: .+, 23 degrees\./)
+    expect(slots[0]).toHaveTextContent(/23°F$/)
+    for (const slot of slots.slice(1)) expect(slot).toHaveTextContent(/, -?\d+ degrees\..*-?\d+°$/)
+
+    // Kept for next time.
+    first.unmount()
+    render(<App />)
+    const again = within(screen.getByRole('banner')).getByRole('group', { name: 'Show' })
+    expect(within(again).getByRole('button', { name: 'Temperature' })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(within(again).getByRole('button', { name: 'Wind' }))
+    expect(await screen.findByRole('button', { name: 'Summit, gusts 37 mph from the west' })).toBeInTheDocument()
+  })
+
   it('credits OpenStreetMap on the map itself, and again with the other sources in About this data', async () => {
     stubFetch(ok)
     render(<App />)

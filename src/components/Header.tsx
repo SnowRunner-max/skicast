@@ -1,8 +1,16 @@
 import type { CSSProperties } from 'react'
 import { agoLabel } from '../lib/time'
 import type { MountainForecast } from '../lib/mountainForecast'
+import type { Measure } from '../hooks/useMeasure'
 import type { Theme } from '../hooks/useTheme'
+import { ThermometerGlyph, WindGlyph } from './Glyphs'
 import { FORECAST_ROW_PX, MountainForecastBar } from './MountainForecastBar'
+import { SegmentedControl, type Segment } from './SegmentedControl'
+
+const MEASURES: readonly Segment<Measure>[] = [
+  { value: 'wind', label: 'Wind', icon: <WindGlyph /> },
+  { value: 'temp', label: 'Temperature', icon: <ThermometerGlyph /> },
+]
 
 interface Props {
   fetchedAt: string | null
@@ -12,13 +20,20 @@ interface Props {
   theme: Theme
   onToggleTheme: () => void
   mountain: MountainForecast | null
+  measure: Measure
+  onMeasureChange: (measure: Measure) => void
 }
 
-export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme, mountain }: Props) {
+export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme, mountain, measure, onMeasureChange }: Props) {
   let status = ''
+  // Where the toolbar is narrow the age stands alone; "Updated" is what gives way to the switch (see index.css).
+  let short = ''
   if (loading) status = fetchedAt ? 'Updating…' : 'Loading…'
-  else if (fetchedAt) status = `Updated ${agoLabel(fetchedAt, now)}`
-  else if (error) status = 'No forecast'
+  else if (fetchedAt) {
+    const ago = agoLabel(fetchedAt, now)
+    status = `Updated ${ago}`
+    short = ago[0]!.toUpperCase() + ago.slice(1)
+  } else if (error) status = 'No forecast'
 
   return (
     <header className="toolbar" style={{ '--forecast-row': `${FORECAST_ROW_PX}px` } as CSSProperties}>
@@ -26,10 +41,17 @@ export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme, m
         <h1>Skicast</h1>
         <p>Mammoth Mountain</p>
       </div>
-      <MountainForecastBar forecast={mountain} loading={loading} error={error} />
+      <MountainForecastBar forecast={mountain} loading={loading} error={error} measure={measure} />
       <div className="toolbar-actions">
         <p className="toolbar-status" aria-live="polite">
-          {status}
+          {short ? (
+            <>
+              <span className="toolbar-status-full">{status}</span>
+              <span className="toolbar-status-short">{short}</span>
+            </>
+          ) : (
+            status
+          )}
         </p>
         <button
           type="button"
@@ -48,6 +70,7 @@ export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme, m
             </svg>
           )}
         </button>
+        <SegmentedControl label="Show" segments={MEASURES} value={measure} onChange={onMeasureChange} />
       </div>
     </header>
   )

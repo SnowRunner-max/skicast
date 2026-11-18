@@ -122,10 +122,13 @@ export function parseGrid(raw: unknown, nowMs: number, label = 'grid square'): G
   return { elevationM, hours: [now, ...hours.slice(1).filter((h) => Number.isFinite(h.gustMph) && Number.isFinite(h.dirDeg))] }
 }
 
-function forecastHour(h: GridHour, beacon: Beacon): ForecastHour {
+/** @param liftC  The lapse-rate correction from the grid square's height to the station's (see beaconForecast). */
+function forecastHour(h: GridHour, beacon: Beacon, liftC: number): ForecastHour {
   const { lat, lon } = beacon.weatherStation
   return {
     time: mountainHour(h.startMs),
+    // Null, not NaN, for the same reason as cloudPct below.
+    tempF: Number.isFinite(h.tempC) ? cToF(h.tempC + liftC) : null,
     speedMph: h.speedMph,
     gustMph: h.gustMph,
     dirDeg: h.dirDeg,
@@ -138,7 +141,7 @@ function forecastHour(h: GridHour, beacon: Beacon): ForecastHour {
 
 /**
  * Fits a grid square's forecast to one beacon. Wind is the square's as it
- * stands. Temperature is moved from the square's average height to the
+ * stands. Temperature, every hour's, is moved from the square's average height to the
  * station's along the standard lapse rate, since a 2.5 km square on a
  * mountain can sit hundreds of metres above or below the station.
  */
@@ -152,13 +155,13 @@ export function beaconForecast(beacon: Beacon, grid: GridForecast, fetchedAt: st
   return {
     beacon,
     now: {
-      ...forecastHour(now, beacon),
+      ...forecastHour(now, beacon, liftC),
       tempF,
       feelsF: windChillF(tempF, now.speedMph),
       precipIn: now.precipInPerHour,
       sky: skyLabel(now.weather, now.cloudPct),
     },
-    next6: next.map((h) => forecastHour(h, beacon)),
+    next6: next.map((h) => forecastHour(h, beacon, liftC)),
     fetchedAt,
   }
 }

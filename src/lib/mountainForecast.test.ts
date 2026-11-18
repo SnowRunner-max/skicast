@@ -118,6 +118,47 @@ describe('mountainForecast', () => {
     expect(m.windStation).toBeNull()
   })
 
+  it("gives each hour the summit's temperature, measured now when Top Station has it", () => {
+    const warming = gridResponse(
+      nowMs,
+      [12, 14, 17, 19, 22, 23, 23].map((tempF) => ({ ...base, tempF })),
+      // The grid square at the station's own height, so no lapse-rate correction.
+      11053 * 0.3048,
+    )
+    const f = beaconForecast(summit, parseGrid(warming, nowMs), new Date(nowMs).toISOString())
+    const forecastOnly = mountainForecast(f, resolveCurrent(f, {}), nowMs)
+    expect(Math.round(forecastOnly.now.tempF!)).toBe(12)
+    expect(forecastOnly.now.tempSource).toBe('model')
+    expect(forecastOnly.tempStation).toBeNull()
+    expect(forecastOnly.next.map((s) => Math.round(s.tempF!))).toEqual([14, 17, 19, 22])
+
+    const measured = mountainForecast(
+      f,
+      resolveCurrent(f, {
+        MTH03: {
+          stationId: 'MTH03',
+          observedAt: '2026-11-17T19:10:00.000Z',
+          tempF: 9.5,
+          speedMph: null,
+          gustMph: null,
+          gustAt: null,
+          dirDeg: null,
+        },
+      }),
+      nowMs,
+    )
+    expect(measured.now).toMatchObject({ tempF: 9.5, tempSource: 'station' })
+    expect(measured.tempStation?.id).toBe('MTH03')
+    // The wind here is still the forecast's: each value keeps its own source.
+    expect(measured.windStation).toBeNull()
+  })
+
+  it('shows no temperature for an hour saved before hours carried one', () => {
+    const old = structuredClone(forecast)
+    for (const h of old.next6) delete (h as { tempF?: number | null }).tempF
+    expect(mountainForecast(old, null, nowMs).next.every((s) => s.tempF === null)).toBe(true)
+  })
+
   it('keeps a missing cloud cover unknown through parsing and a save to localStorage', () => {
     const raw = structuredClone(grid)
     // NWS leaves the layer's later hours out.

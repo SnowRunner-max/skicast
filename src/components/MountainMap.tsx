@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react'
 import { BEACONS, beaconPoint } from '../data/beacons'
 import { MAP, type MapLift } from '../data/mapPaths'
 import type { Layout } from '../hooks/useLayout'
+import type { Measure } from '../hooks/useMeasure'
 import { toScreen, usePanZoom, type Box, type Insets, type View } from '../hooks/usePanZoom'
 import type { Current } from '../lib/current'
 import { Beacon } from './Beacon'
@@ -14,6 +15,8 @@ interface Props {
   layout: Layout
   /** Height in pixels the bottom sheet covers, in the sheet layout; 0 otherwise. */
   sheetPx: number
+  /** What each beacon shows: its gust, or its temperature. */
+  measure: Measure
 }
 
 const VIEW_BOX: Box = { x: 0, y: 0, width: MAP.viewBox.width, height: MAP.viewBox.height }
@@ -120,7 +123,7 @@ function placeLabels(view: View, obstacles: Box[]): PlacedLabel[] {
 /**
  * Screen-space boxes a beacon and its label cover, for keeping lift names
  * clear of them. The label boxes are a generous fixed size (the longest short
- * name with its gust above it) rather than measured, so this stays a pure
+ * name with its gust or temperature above it) rather than measured, so this stays a pure
  * function of the view. If .beacon-label's type size changes in index.css,
  * these want another look.
  */
@@ -162,7 +165,7 @@ function insetsFor(layout: Layout, sheetPx: number): Insets {
   }
 }
 
-export function MountainMap({ currents, selectedId, onSelect, layout, sheetPx }: Props) {
+export function MountainMap({ currents, selectedId, onSelect, layout, sheetPx, measure }: Props) {
   const { ref, size, view, zoomBy, reset, handlers } = usePanZoom({
     // Small screens frame the beacons, which are the point of the page; a
     // desktop has room for the whole lift network around them.
@@ -228,6 +231,7 @@ export function MountainMap({ currents, selectedId, onSelect, layout, sheetPx }:
             x={x}
             y={y}
             onSelect={onSelect}
+            measure={measure}
           />
         ))}
       </div>
