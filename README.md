@@ -45,7 +45,7 @@ npm run dev
 
 The site is hosted on Netlify (`netlify.toml`): it builds `dist/` and deploys `netlify/functions/` beside it. `dist/` alone still runs anywhere static (GitHub Pages, say), but without `/api/stations` every reading comes from NWS.
 
-Every pull request and push to `main` runs the typecheck, tests and build (`.github/workflows/ci.yml`). Netlify builds and publishes each push to `main` itself. `.github/workflows/deploy.yml` published to GitHub Pages before the move; it is turned off and can be deleted once the Netlify site is live.
+Every pull request and push to `main` runs the typecheck, tests and build (`.github/workflows/ci.yml`). Netlify builds and publishes each push to `main` itself.
 
 ## The map
 
