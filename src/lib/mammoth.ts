@@ -68,8 +68,10 @@ export function queryBody(interval: number): URLSearchParams {
 
 /**
  * Folds the site's answers, one per interval, into one snapshot. Throws when
- * the 5-minute answer is missing or holds no station, so a broken fetch never
- * publishes an empty file. A station with no reading at all is still listed.
+ * the 5-minute answer is missing or holds no station, so a broken fetch is
+ * answered with an error (and the app falls back to NWS) rather than an empty
+ * snapshot that would look like every station had gone quiet. A station with
+ * no reading at all is still listed.
  */
 export function buildSnapshot(responses: Partial<Record<IntervalName, unknown>>, fetchedAt: Date): StationSnapshot {
   if (!isObject(responses['5min']) || !isObject(responses['5min'].stations)) {

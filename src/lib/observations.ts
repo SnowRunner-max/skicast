@@ -5,21 +5,31 @@ import { fetchJson, fetchObservations, type ObservationMap } from './nws'
 
 const age = (o: Observation, nowMs: number) => nowMs - Date.parse(o.observedAt)
 
-/** The newer of two readings of one station, either of which may be missing. */
-function newer(a: Observation | null, b: Observation | null): Observation | null {
-  if (!a || !b) return a ?? b
-  return Date.parse(b.observedAt) > Date.parse(a.observedAt) ? b : a
+/**
+ * Which reading of one station to show.
+ *
+ * Mammoth's own reading takes precedence while it is fresh (MAMMOTH_FRESH_MS:
+ * one report plus one missed cycle), even if NWS somehow has a newer one.
+ * Past that the station has stalled, and the newer of the two is shown. Either
+ * may be missing. The reading is kept whole, never mixed across feeds.
+ */
+export function chooseReading(mammoth: Observation | null, nws: Observation | null, nowMs: number): Observation | null {
+  if (mammoth && age(mammoth, nowMs) <= MAMMOTH_FRESH_MS) return mammoth
+  if (!mammoth || !nws) return mammoth ?? nws
+  return Date.parse(nws.observedAt) > Date.parse(mammoth.observedAt) ? nws : mammoth
 }
 
 /**
  * Current readings for every station, keyed by Mammoth's station id.
  *
  * Mammoth's own feed comes first: it reports every 5 minutes and carries values
- * the NWS copy drops (Top Station's sustained wind, for one). Any station it has
- * nothing recent for is asked of the National Weather Service instead, and the
- * newer of the two readings is kept. Each station's values come from one feed,
- * never a mix. If Mammoth's site can't be reached (or the app is served
- * without the /api/stations function) every station falls back to NWS.
+ * the NWS copy drops (Top Station's sustained wind, for one). Only a station
+ * whose Mammoth reading is missing or stale is asked of the National Weather
+ * Service, and `chooseReading` decides between the two. If Mammoth's site
+ * can't be reached (or the app is served without the /api/stations function)
+ * every station falls back to NWS.
+ *
+ * @param nowMs  Fixed once per fetch, so every station is judged against the same clock.
  */
 export async function fetchAllObservations(
   stations: readonly Station[],
@@ -36,12 +46,15 @@ export async function fetchAllObservations(
 
   // A stalled station's last reading can be old; past the usual age limit it is not shown at all.
   const usable = (o: Observation | null | undefined) => (o && age(o, nowMs) <= OBSERVATION_MAX_AGE_MS ? o : null)
-  const fresh = (s: Station) => {
+  const isFresh = (s: Station) => {
     const o = usable(mammoth[s.id])
     return o !== null && age(o, nowMs) <= MAMMOTH_FRESH_MS
   }
 
-  const behind = stations.filter((s) => !fresh(s))
-  const nws = behind.length > 0 ? await fetchObservations(behind, signal) : {}
-  return Object.fromEntries(stations.map((s) => [s.id, newer(usable(mammoth[s.id]), nws[s.id] ?? null)]))
+  // NWS is only asked about stations it could actually win for.
+  const stale = stations.filter((s) => !isFresh(s))
+  const nws = stale.length > 0 ? await fetchObservations(stale, signal, nowMs) : {}
+  return Object.fromEntries(
+    stations.map((s) => [s.id, chooseReading(usable(mammoth[s.id]), nws[s.id] ?? null, nowMs)]),
+  )
 }

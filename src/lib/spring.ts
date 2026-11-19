@@ -21,6 +21,17 @@ export interface SpringState {
 /** Critically damped: the default for anything that moves without being thrown. */
 export const SNAPPY: SpringParams = { damping: 1, response: 0.3 }
 
+/**
+ * A little bounce, for something a finger has just thrown: Apple's drawer and
+ * sheet spring. Only after a flick; a tap or a slow drag settles with SNAPPY.
+ */
+export const THROWN: SpringParams = { damping: 0.8, response: 0.3 }
+
+/** True when the reader asks for less motion: springs then jump straight to their target. */
+export function prefersReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
 /** Integrated in small fixed steps, so a long frame cannot make it unstable. */
 const STEP_S = 1 / 240
 

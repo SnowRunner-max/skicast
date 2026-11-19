@@ -34,6 +34,10 @@ export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme, m
     status = `Updated ${ago}`
     short = ago[0]!.toUpperCase() + ago.slice(1)
   } else if (error) status = 'No forecast'
+  // Read aloud only when something happens: a load starting or failing. The
+  // visible status rewrites its age every 30 seconds, and as a live region it
+  // would interrupt a screen reader each time.
+  const announce = loading ? status : error ? (fetchedAt ? 'Forecast could not be refreshed' : 'No forecast') : ''
 
   return (
     <header className="toolbar" style={{ '--forecast-row': `${FORECAST_ROW_PX}px` } as CSSProperties}>
@@ -43,7 +47,10 @@ export function Header({ fetchedAt, loading, error, now, theme, onToggleTheme, m
       </div>
       <MountainForecastBar forecast={mountain} loading={loading} error={error} measure={measure} />
       <div className="toolbar-actions">
-        <p className="toolbar-status" aria-live="polite">
+        <p className="sr-only" aria-live="polite">
+          {announce}
+        </p>
+        <p className="toolbar-status">
           {short ? (
             <>
               <span className="toolbar-status-full">{status}</span>

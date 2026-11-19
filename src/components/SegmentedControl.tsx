@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { atRest, project, rubberband, SNAPPY, stepSpring, type SpringState } from '../lib/spring'
+import { atRest, prefersReducedMotion, project, rubberband, SNAPPY, stepSpring, type SpringState } from '../lib/spring'
 
 export interface Segment<T extends string> {
   value: T
@@ -22,10 +22,6 @@ const DRAG_SLOP_PX = 6
 const VELOCITY_WINDOW_MS = 80
 /** A small control stops a flick sooner than a scroll view would. */
 const DECELERATION = 0.99
-
-function reducedMotion(): boolean {
-  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
-}
 
 /**
  * A segmented control in the iOS manner: icons on a track, with a thumb under
@@ -73,7 +69,7 @@ export function SegmentedControl<T extends string>({ label, segments, value, onC
   /** Runs the spring to `target` from where the thumb is now. */
   const animate = useCallback(() => {
     cancelAnimationFrame(frame.current)
-    if (reducedMotion()) {
+    if (prefersReducedMotion()) {
       spring.current = { x: target.current, v: 0 }
       paint()
       return
