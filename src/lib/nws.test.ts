@@ -4,7 +4,7 @@ import { fetchObservations, parseObservations } from './nws'
 import { nwsResponse } from './__fixtures__/nws'
 
 const NOW = Date.parse('2026-11-16T17:00:00Z')
-const parse = (readings: Parameters<typeof nwsResponse>[1]) => parseObservations(nwsResponse(NOW, readings), 'MTH20', NOW)
+const parse = (readings: Parameters<typeof nwsResponse>[1]) => parseObservations(nwsResponse(NOW, readings), 'MM-MCY', NOW)
 
 describe('parseObservations', () => {
   it('converts NWS units to mph and degrees Fahrenheit', () => {
@@ -13,7 +13,8 @@ describe('parseObservations', () => {
     expect(obs.speedMph).toBeCloseTo(10, 3)
     expect(obs.gustMph).toBeCloseTo(20, 3)
     expect(obs.dirDeg).toBe(250)
-    expect(obs.stationId).toBe('MTH20')
+    expect(obs.stationId).toBe('MM-MCY')
+    expect(obs.source).toBe('nws')
   })
 
   it('stamps the reading with the newest time that supplied temperature or wind', () => {
@@ -48,7 +49,7 @@ describe('parseObservations', () => {
   })
 
   it('returns null for a station that has sent nothing', () => {
-    expect(parseObservations({ features: [] }, 'MTH20', NOW)).toBeNull()
+    expect(parseObservations({ features: [] }, 'MM-MCY', NOW)).toBeNull()
   })
 
   it('reports what a temperature-only station has and leaves wind empty', () => {
@@ -73,18 +74,18 @@ describe('parseObservations', () => {
   it('ignores values in units it does not know rather than guessing', () => {
     const raw = nwsResponse(NOW, [{ minAgo: 5, tempC: -4, speedKmh: 10 }])
     raw.features[0]!.properties.windSpeed.unitCode = 'wmoUnit:knot'
-    expect(parseObservations(raw, 'MTH20', NOW)!.speedMph).toBeNull()
+    expect(parseObservations(raw, 'MM-MCY', NOW)!.speedMph).toBeNull()
   })
 
   it('rejects a response that is not a list of readings', () => {
-    expect(() => parseObservations({ title: 'Not Found' }, 'MTH20', NOW)).toThrow(/no readings/)
+    expect(() => parseObservations({ title: 'Not Found' }, 'MM-MCY', NOW)).toThrow(/no readings/)
   })
 })
 
 describe('fetchObservations', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('asks every station, keyed by station id, and one failing station leaves the rest alone', async () => {
+  it("asks NWS for every station it carries, keyed by Mammoth's id, and one failing station leaves the rest alone", async () => {
     const now = Date.now()
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       if (String(url).includes('/stations/MTH19/')) return new Response('down', { status: 503 })
@@ -96,13 +97,14 @@ describe('fetchObservations', () => {
     const result = await fetchObservations(STATIONS)
 
     const urls = fetchMock.mock.calls.map((c) => String(c[0]))
-    expect(urls).toHaveLength(STATIONS.length)
+    expect(urls).toHaveLength(STATIONS.filter((s) => s.nwsId).length)
     expect(urls.every((u) => u.startsWith('https://api.weather.gov/stations/MTH'))).toBe(true)
     expect(Object.keys(result).sort()).toEqual(STATIONS.map((s) => s.id).sort())
-    expect(result.MTH19).toBeNull() // it failed
-    expect(result.MTH24).toBeNull() // it sent nothing
-    expect(result.MTH03?.stationId).toBe('MTH03')
-    expect(result.MTH02?.speedMph).toBeCloseTo(6.2, 1) // fetched though no beacon shows it
+    expect(result['MM-CLG']).toBeNull() // MTH19 failed
+    expect(result['MM-WLY']).toBeNull() // MTH24 sent nothing
+    expect(result['MM-C2T']).toBeNull() // NWS does not carry it, so it was not asked
+    expect(result['MM-SUM']?.stationId).toBe('MM-SUM')
+    expect(result['MM-T22']?.speedMph).toBeCloseTo(6.2, 1) // fetched though no beacon shows it
   })
 })
 
@@ -110,7 +112,9 @@ describe('stations', () => {
   it('lists every Mammoth station once, including every one a beacon uses', () => {
     const ids = STATIONS.map((s) => s.id)
     expect(new Set(ids).size).toBe(ids.length)
-    expect(ids).toHaveLength(20)
+    expect(ids).toHaveLength(24)
+    const nwsIds = STATIONS.flatMap((s) => (s.nwsId ? [s.nwsId] : []))
+    expect(new Set(nwsIds).size).toBe(20)
     for (const beacon of BEACONS) expect(ids).toContain(beacon.weatherStation.id)
   })
 })

@@ -95,8 +95,9 @@ describe('mountainForecast', () => {
 
   it('takes the current wind from the summit as the Summit beacon shows it, measured when it can be', () => {
     const current = resolveCurrent(forecast, {
-      MTH12: {
-        stationId: 'MTH12',
+      'MM-SUM': {
+        stationId: 'MM-SUM',
+        source: 'mammoth',
         observedAt: '2026-11-17T19:10:00.000Z',
         tempF: null,
         speedMph: 27,
@@ -108,7 +109,7 @@ describe('mountainForecast', () => {
     const m = mountainForecast(forecast, current, nowMs)
     // Measured, and strong enough to call the clear-ish hour windy; the later hours stay the forecast's.
     expect(m.now).toMatchObject({ windMph: 27, windSource: 'station', icon: 'windy' })
-    expect(m.windStation?.id).toBe('MTH12')
+    expect(m.windStation?.id).toBe('MM-SUM')
     expect(m.next[0]).toMatchObject({ windMph: 16, windSource: 'model' })
   })
 
@@ -135,8 +136,9 @@ describe('mountainForecast', () => {
     const measured = mountainForecast(
       f,
       resolveCurrent(f, {
-        MTH03: {
-          stationId: 'MTH03',
+        'MM-SUM': {
+          stationId: 'MM-SUM',
+          source: 'mammoth',
           observedAt: '2026-11-17T19:10:00.000Z',
           tempF: 9.5,
           speedMph: null,
@@ -148,7 +150,7 @@ describe('mountainForecast', () => {
       nowMs,
     )
     expect(measured.now).toMatchObject({ tempF: 9.5, tempSource: 'station' })
-    expect(measured.tempStation?.id).toBe('MTH03')
+    expect(measured.tempStation?.id).toBe('MM-SUM')
     // The wind here is still the forecast's: each value keeps its own source.
     expect(measured.windStation).toBeNull()
   })

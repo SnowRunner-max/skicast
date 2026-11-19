@@ -14,9 +14,10 @@ const fourMinLater = Date.parse(FETCHED_AT) + 4 * 60_000
 /** Readings keyed by station id, as the app holds them. */
 const at = (...readings: Observation[]) => Object.fromEntries(readings.map((o) => [o.stationId, o]))
 
-/** Top Station reports temperature and a gust, not sustained wind or direction. */
+/** Top Station as the NWS copy often carries it: temperature and an old gust, no sustained wind or direction. */
 const summitStation: Observation = {
-  stationId: 'MTH03',
+  stationId: 'MM-SUM',
+  source: 'nws',
   observedAt: new Date(fourMinLater - 3 * 60_000).toISOString(),
   tempF: 23,
   speedMph: null,
@@ -25,7 +26,8 @@ const summitStation: Observation = {
   dirDeg: null,
 }
 const mccoyStation: Observation = {
-  stationId: 'MTH20',
+  stationId: 'MM-MCY',
+  source: 'mammoth',
   observedAt: new Date(fourMinLater - 3 * 60_000).toISOString(),
   tempF: 27,
   speedMph: 4,
@@ -152,6 +154,10 @@ describe('BeaconWidget', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'About this data' }))
     const dialog = screen.getByRole('dialog')
+    expect(within(dialog).getByRole('link', { name: "Mammoth Mountain's weather stations" })).toHaveAttribute(
+      'href',
+      'https://mammothmountain.westernweathergroup.com',
+    )
     expect(within(dialog).getByRole('link', { name: 'National Weather Service' })).toHaveAttribute('href', 'https://www.weather.gov/')
     expect(within(dialog).getByRole('link', { name: 'OpenStreetMap contributors' })).toHaveAttribute(
       'href',
@@ -227,7 +233,8 @@ describe('BeaconWidget', () => {
       expect(dialog).toHaveTextContent(
         'Current weather is real time. The forecast is from the National Weather Service. It covers the 2.5 km square around this point, so nearby points can show the same forecast. Ridge-top gusts and gusts on lift can run higher than forecast.',
       )
-      expect(dialog).toHaveTextContent('Measured at McCoy Station (MTH20)')
+      expect(dialog).toHaveTextContent("Measured at McCoy Station (MM-MCY), one of Mammoth's own weather stations.")
+      expect(dialog).not.toHaveTextContent('can lag the wind')
       expect(dialog).not.toHaveTextContent('Not from weather station.')
       expect(bandKeyRows(dialog)[0]).toBe('Calm Under 20 mph')
     })
@@ -240,20 +247,11 @@ describe('BeaconWidget', () => {
       )
     })
 
-    it('names both stations when the summit mixes Top Station with its backup, and what each one measured', async () => {
-      const tower: Observation = { ...mccoyStation, stationId: 'MTH12', tempF: null, speedMph: 12, dirDeg: 250 }
-      renderWidget({ current: resolveCurrent(summit, at(summitStation, tower)) })
-      // The panel gives only the reading's age; the info dialog names both stations.
-      expect(readingAge()).toHaveTextContent('Measured 3 min ago')
-      expect(screen.queryByText(/Gondola 2 Tower 10/)).not.toBeInTheDocument()
-      expect(screen.getByRole('img', { name: 'Sustained wind 12 miles per hour from the west-southwest' })).toBeInTheDocument()
+    it('says when a reading came through the National Weather Service instead, and that its gust can lag', async () => {
+      renderWidget({ current: resolveCurrent(summit, at(summitStation)) })
       await userEvent.click(screen.getByRole('button', { name: 'About this data' }))
-      const dialog = screen.getByRole('dialog')
-      expect(dialog).toHaveTextContent(
-        'Measured at two stations, reported through the National Weather Service: temperature and gusts at Top Station (MTH03), sustained wind and wind direction at Gondola 2 Tower 10 (MTH12).',
-      )
-      expect(dialog).toHaveTextContent(
-        'Not measured at these stations, so from the National Weather Service forecast: sky, cloud cover and precipitation.',
+      expect(screen.getByRole('dialog')).toHaveTextContent(
+        "Measured at Top Station (MM-SUM), reported through the National Weather Service while Mammoth's own feed is unavailable. Gusts are the latest the station has sent, which can lag the wind.",
       )
     })
 

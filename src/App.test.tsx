@@ -43,22 +43,49 @@ const ok = (url: string) => {
 }
 const noStations = () => Promise.resolve(new Response('down', { status: 503 }))
 
+const isSnapshot = (url: string) => url.startsWith('./api/stations')
+
+/** /api/stations's answer: Top Station in a storm, 3 minutes ago, and nothing else. */
+function snapshot(now: number) {
+  return {
+    version: 1,
+    fetchedAt: new Date(now - 60_000).toISOString(),
+    fields: {},
+    stations: {
+      'MM-SUM': {
+        name: 'Top Stn/Summit - 11,053ft',
+        lat: 37.63059,
+        lon: -119.03282,
+        elevationFt: 11034,
+        readings: {
+          '5min': { at: new Date(now - 3 * 60_000).toISOString(), values: { Temp: 12.6, WindSpeed: 49, WindMax: 55.2, WindDir: 213 } },
+        },
+      },
+    },
+  }
+}
+
 /**
- * Light wind at McCoy and Canyon; a temperature and a gust at Top Station with wind from the west at the gondola
- * tower below it; temperature only at Top of Eagle; nothing from Sesame.
+ * The National Weather Service's station readings, with nothing from /api/stations (Mammoth's site down): light wind at
+ * McCoy and Canyon; a temperature and an old gust at Top Station; temperature only at Top of Eagle; nothing from Sesame.
  */
 const stationsReporting = (url: string) => {
   const now = Date.now()
   const readings: Record<string, Parameters<typeof nwsResponse>[1]> = {
     MTH03: [{ minAgo: 4, tempC: -5 }, { minAgo: 100, tempC: -5, gustKmh: 60 }],
-    MTH12: [{ minAgo: 4, speedKmh: 20, dirDeg: 270 }],
+    MTH12: [{ minAgo: 4, speedKmh: 20, dirDeg: 270 }], // Gondola 2 Tower 10, beside Top Station: never shown for the summit
     MTH20: [{ minAgo: 4, tempC: -3, speedKmh: 6, dirDeg: 20, gustKmh: 14 }],
     MTH19: [{ minAgo: 4, tempC: 1, speedKmh: 5, dirDeg: 200, gustKmh: 16 }],
     MTH22: [{ minAgo: 4, tempC: 1 }],
   }
+  if (isSnapshot(url)) return Promise.resolve(new Response('not found', { status: 404 }))
   const id = /stations\/(\w+)\//.exec(url)?.[1] ?? ''
   return Promise.resolve(new Response(JSON.stringify(nwsResponse(now, readings[id] ?? []))))
 }
+
+/** Mammoth's own feed for Top Station, NWS for the rest. */
+const mammothReporting = (url: string) =>
+  isSnapshot(url) ? Promise.resolve(new Response(JSON.stringify(snapshot(Date.now())))) : stationsReporting(url)
 
 describe('App', () => {
   it('loads all eight beacons with one forecast request per grid square and selects Summit', async () => {
@@ -134,8 +161,8 @@ describe('App', () => {
     // McCoy and Canyon: measured gusts (14 and 16 km/h are 9 and 10 mph), not the forecast's 24 and 20.
     expect(await screen.findByRole('button', { name: 'McCoy Station, gusts 9 mph from the north-northeast' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Canyon Lodge, gusts 10 mph from the south-southwest' })).toBeInTheDocument()
-    // Summit: Top Station's 60 km/h gust (37 mph) is 100 minutes old, but it is measured; the direction is the gondola tower's.
-    expect(screen.getByRole('button', { name: 'Summit, gusts 37 mph from the west' })).toBeInTheDocument()
+    // Summit: Top Station's 60 km/h gust (37 mph) is 100 minutes old, but it is measured; the direction is the forecast's.
+    expect(screen.getByRole('button', { name: 'Summit, gusts 37 mph from the southwest' })).toBeInTheDocument()
     // Top of Eagle sends temperature only, and Sesame sent nothing: both gusts are the forecast's.
     expect(screen.getByRole('button', { name: 'Top of Eagle, gusts 19 mph from the south-southwest, not from a weather station' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /^Sesame, gusts 24 mph.*not from a weather station$/ })).toBeInTheDocument()
@@ -147,7 +174,8 @@ describe('App', () => {
     await screen.findByRole('button', { name: 'McCoy Station, gusts 9 mph from the north-northeast' })
 
     const stationUrls = fetchMock.mock.calls.map((c) => String(c[0])).filter((u) => u.startsWith('https://api.weather.gov/stations/'))
-    expect(stationUrls).toHaveLength(STATIONS.length)
+    // With nothing from Mammoth, every station NWS carries is asked of NWS.
+    expect(stationUrls).toHaveLength(STATIONS.filter((s) => s.nwsId).length)
     expect(stationUrls.some((u) => u.includes('/stations/MTH02/'))).toBe(true)
     expect(screen.queryByRole('button', { name: /^Top of 22/ })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /^Upper Gondola/ })).not.toBeInTheDocument()
@@ -176,21 +204,35 @@ describe('App', () => {
     expect(slots.slice(1).map((s) => /wind (\d+) mph/.exec(s.textContent ?? '')?.[1])).toEqual(['18', '18', '17', '17'])
   })
 
-  it('keeps the Mountain Forecast on the summit whichever beacon is selected, with the measured wind when there is one', async () => {
-    stubFetch(ok, stationsReporting)
+  it("reads Mammoth's own feed first, and asks NWS only for the stations it has nothing fresh for", async () => {
+    const fetchMock = stubFetch(ok, mammothReporting)
     render(<App />)
 
-    // Gondola 2 Tower 10 (MTH12) measures 20 km/h for the summit: 12 mph.
+    // Top Station's own wind, which the NWS copy drops: sustained 49 mph from 213 degrees, gusting 55.
+    expect(await screen.findByRole('button', { name: /^Summit, gusts 55 mph from the south-southwest/ })).toBeInTheDocument()
+    // McCoy is not in the snapshot, so it comes from NWS.
+    expect(screen.getByRole('button', { name: 'McCoy Station, gusts 9 mph from the north-northeast' })).toBeInTheDocument()
+
+    const urls = fetchMock.mock.calls.map((c) => String(c[0]))
+    expect(urls.filter(isSnapshot)).toHaveLength(1)
+    expect(urls.some((u) => u.includes('/stations/MTH03/'))).toBe(false)
+    expect(urls.some((u) => u.includes('/stations/MTH20/'))).toBe(true)
+  })
+
+  it('keeps the Mountain Forecast on the summit whichever beacon is selected, with the measured wind when there is one', async () => {
+    stubFetch(ok, mammothReporting)
+    render(<App />)
+
     const bar = await screen.findByRole('region', { name: /Mountain forecast/ })
-    expect(await within(bar).findByText(/^Now: .*, wind 12 mph\.$/)).toBeInTheDocument()
+    expect(await within(bar).findByText(/^Now: .*, wind 49 mph\.$/)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /^Canyon Lodge, gusts/ }))
-    expect(within(bar).getByText(/^Now: .*, wind 12 mph\.$/)).toBeInTheDocument()
+    expect(within(bar).getByText(/^Now: .*, wind 49 mph\.$/)).toBeInTheDocument()
   })
 
   it('switches the toolbar and the map between wind and temperature, and remembers the choice', async () => {
     stubFetch(ok, stationsReporting)
     const first = render(<App />)
-    await screen.findByRole('button', { name: 'Summit, gusts 37 mph from the west' })
+    await screen.findByRole('button', { name: 'Summit, gusts 37 mph from the southwest' })
 
     // A segmented control in the toolbar, wind first and chosen.
     const show = within(screen.getByRole('banner')).getByRole('group', { name: 'Show' })
@@ -218,7 +260,7 @@ describe('App', () => {
     const again = within(screen.getByRole('banner')).getByRole('group', { name: 'Show' })
     expect(within(again).getByRole('button', { name: 'Temperature' })).toHaveAttribute('aria-pressed', 'true')
     await userEvent.click(within(again).getByRole('button', { name: 'Wind' }))
-    expect(await screen.findByRole('button', { name: 'Summit, gusts 37 mph from the west' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Summit, gusts 37 mph from the southwest' })).toBeInTheDocument()
   })
 
   it('credits OpenStreetMap on the map itself, and again with the other sources in About this data', async () => {

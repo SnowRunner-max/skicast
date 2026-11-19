@@ -18,11 +18,8 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Panorama Gondola top station',
     shortName: 'Summit',
     labelSide: 'right',
-    weatherStation: stationById('MTH03'),
+    weatherStation: stationById('MM-SUM'),
     forecastCell: { office: 'REV', x: 57, y: 17 },
-    // Top Station sends no sustained wind or direction. Gondola 2 Tower 10, about 220 ft away and 50 ft lower,
-    // does, so it fills those in. Its own dot would sit on top of the summit's, so it has no beacon of its own.
-    backupStations: [stationById('MTH12')],
   },
   {
     id: 'mccoy',
@@ -30,7 +27,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Panorama Gondola mid-station',
     shortName: 'McCoy',
     labelSide: 'left',
-    weatherStation: stationById('MTH20'),
+    weatherStation: stationById('MM-MCY'),
     forecastCell: { office: 'REV', x: 57, y: 18 },
   },
   {
@@ -39,7 +36,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Top of Broadway Express (Chair 1)',
     shortName: 'Broadway',
     labelSide: 'right',
-    weatherStation: stationById('MTH01'),
+    weatherStation: stationById('MM-C1T'),
     forecastCell: { office: 'REV', x: 57, y: 18 },
   },
   {
@@ -48,7 +45,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Tower 20, at the top of Gold Rush Express (Chair 10)',
     shortName: 'Gold Rush',
     labelSide: 'left',
-    weatherStation: stationById('MTH08'),
+    weatherStation: stationById('MM-C10T20'),
     forecastCell: { office: 'REV', x: 57, y: 17 },
   },
   {
@@ -57,7 +54,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Tower 11, midway up Cloud Nine Express (Chair 9)',
     shortName: 'Cloud Nine',
     labelSide: 'left',
-    weatherStation: stationById('MTH15'),
+    weatherStation: stationById('MM-C9T11'),
     forecastCell: { office: 'REV', x: 57, y: 17 },
   },
   {
@@ -67,7 +64,7 @@ export const BEACONS: Beacon[] = [
     shortName: 'Sesame',
     // Below, not beside: it is the right-most beacon, and a side label runs off a phone screen.
     labelSide: 'below',
-    weatherStation: stationById('MTH05'),
+    weatherStation: stationById('MM-SES'),
     forecastCell: { office: 'REV', x: 57, y: 18 },
   },
   {
@@ -77,7 +74,7 @@ export const BEACONS: Beacon[] = [
     shortName: 'Top of Eagle',
     // Below, not beside: it is the left-most beacon, and a side label runs off a phone screen.
     labelSide: 'below',
-    weatherStation: stationById('MTH22'),
+    weatherStation: stationById('MM-T15'),
     forecastCell: { office: 'REV', x: 58, y: 17 },
   },
   {
@@ -86,7 +83,7 @@ export const BEACONS: Beacon[] = [
     pinnedTo: 'Base of Canyon Express',
     shortName: 'Canyon',
     labelSide: 'left',
-    weatherStation: stationById('MTH19'),
+    weatherStation: stationById('MM-CLG'),
     forecastCell: { office: 'REV', x: 58, y: 18 },
   },
 ]

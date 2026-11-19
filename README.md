@@ -10,7 +10,22 @@ A switch in the toolbar's top right corner (wind or thermometer) changes what th
 
 Current values are measured where the station has a fresh reading, and come from the forecast model where it does not. The next six hours are always the model.
 
-No backend, and every number comes from the National Weather Service's public API (free, keyless, public domain, open to cross-origin requests): the forecast (one request per NWS grid square; the eight beacons sit in four) and station readings (one request per station, for all 20 Mammoth stations, including the ones not drawn on the map).
+One small server function and no database. Two sources:
+
+- **Station readings** come from Mammoth Mountain's own weather stations, as published on its public station site ([mammothmountain.westernweathergroup.com](https://mammothmountain.westernweathergroup.com), run by Western Weather Group). They report every 5 minutes. The site sends no cross-origin headers, so a browser can't read it directly; the app asks `/api/stations` on its own host instead, which asks Mammoth's site (see below).
+- **The forecast**, and readings for any station Mammoth's feed has nothing fresh for, come from the National Weather Service's public API (free, keyless, public domain, open to cross-origin requests): one forecast request per NWS grid square (the eight beacons sit in four) and one request per station. The NWS copy of Mammoth's stations drops values (Top Station's sustained wind, much of the time) and runs 30 minutes to 2 hours behind, so it is the fallback only.
+
+Each beacon reads its own station and nothing else. Summit used to borrow sustained wind from Gondola 2 Tower 10, about 220 ft away, but that tower reads a tenth of Top Station's wind in a storm.
+
+## Station readings (`/api/stations`)
+
+`/api/stations` asks Mammoth's station site for every station in its group (24 Mammoth stations and 2 at June Mountain) at four intervals: 5-minute, 15-minute, hourly and daily. Each interval has its own fields, from wind and gusts to snow depth, storm totals, season precipitation, daily peaks and battery voltage. It answers with all of them, with each field's name and units, as one JSON snapshot. The app uses temperature, sustained wind, gust and direction; the rest is there for later.
+
+- In production it is a Netlify Function (`netlify/functions/stations.ts`). Netlify's CDN keeps each answer for 60 seconds, so Mammoth's site is asked about once a minute however many people have the app open, and a reading is at most about 6 minutes old.
+- `npm run dev` and `npm run preview` serve the same endpoint from Vite (`vite.config.ts`), so local runs see Mammoth's readings too.
+- The endpoint Mammoth's site uses (`/mapapi/query`, the one its own map page calls) is undocumented. `src/lib/mammoth.ts` checks everything it reads. If the 5-minute readings fail, `/api/stations` answers 502 and the app reads NWS for every station.
+- A station whose Mammoth reading is over 30 minutes old has stalled; the app also asks NWS for it and shows the newer of the two.
+- The data is Mammoth's. The site states no terms of use; ask Mammoth before using it commercially.
 
 ## Run it
 
@@ -28,9 +43,9 @@ npm run dev
 | `npm run map:fetch` | Pull lifts from OpenStreetMap again, then rebuild |
 | `npm run map:terrain` | Sample USGS elevations again, then rebuild |
 
-`dist/` is plain static files with relative paths, so it deploys as-is to GitHub Pages, Netlify or Cloudflare Pages.
+The site is hosted on Netlify (`netlify.toml`): it builds `dist/` and deploys `netlify/functions/` beside it. `dist/` alone still runs anywhere static (GitHub Pages, say), but without `/api/stations` every reading comes from NWS.
 
-Every pull request and push to `main` runs the typecheck, tests and build (`.github/workflows/ci.yml`). Each push to `main` that passes is published to GitHub Pages (`.github/workflows/deploy.yml`) at https://snowrunner-max.github.io/skicast/.
+Every pull request and push to `main` runs the typecheck, tests and build (`.github/workflows/ci.yml`). Netlify builds and publishes each push to `main` itself.
 
 ## The map
 
@@ -53,7 +68,9 @@ OpenStreetMap's attribution guidelines want the credit on the map itself, readab
 | --- | --- |
 | Wind band cutoffs and labels | `src/lib/wind.ts` |
 | Beacons (which station, name, label side) | `src/data/beacons.ts` |
-| Every Mammoth weather station (id, coordinates, elevation) | `src/data/stations.ts` |
+| Every Mammoth weather station (Mammoth's id, NWS id, coordinates, elevation) | `src/data/stations.ts` |
+| Reading Mammoth's station site, and `/api/stations` | `src/lib/mammoth.ts`, `src/lib/stationsEndpoint.ts`, `netlify/functions/stations.ts` |
+| Mammoth's feed first, NWS for the rest | `src/lib/observations.ts` |
 | Forecast source, hosts, cache times, how old a reading may be | `src/config.ts` |
 | Which NWS grid square each beacon's forecast comes from | `forecastCell` in `src/data/beacons.ts` |
 | Info text (the three wordings) | `src/components/DataInfo.tsx` |
@@ -68,13 +85,13 @@ OpenStreetMap's attribution guidelines want the credit on the map itself, readab
 ## Things to know
 
 - **Measured first, forecast as the fallback, value by value.** `resolveCurrent` takes each of temperature, sustained wind, gust and direction from the station when it has a fresh reading, and from the model when it does not. Sky, cloud cover and precipitation are never measured at these stations, so they are always the model's. A point with no fresh station data gets a warning icon and "Not from weather station."
-- **Every station is fetched; eight are drawn.** `src/data/stations.ts` lists all 20 Mammoth stations on the NWS feed, and `useObservations` reads every one of them (keyed by station id) so the data is on hand for interpolating between stations later. `src/data/beacons.ts` picks the eight drawn on the map; each beacon sits at its station's coordinates. Add or swap a beacon by pointing `weatherStation` at another station there.
-- **A beacon can borrow from a neighbour.** `backupStations` lists stations that fill in, value by value, what the main station does not send. Summit uses it: Top Station (`MTH03`) has no sustained wind or direction, so they come from Gondola 2 Tower 10 (`MTH12`), about 220 ft away and 50 ft lower. The info dialog names both stations and says which value came from which; the screen gives only where the point stands and the age of its reading.
-- **Stations are patchy.** Top Station (`MTH03`) reports temperature and gusts but no sustained wind or direction; Top of Broadway, Top of Gold Rush and Cloud Nine report wind but no temperature. The comment on each line of `stations.ts` says what that station sent when it was surveyed. Each missing value falls back to the model on its own, and the screen says which.
-- **Station gusts lag.** The NWS feed only publishes a gust after quality screening, so it is usually 1 to 2 hours old. Gusts up to 3 hours old are used; everything else must be under 2 hours old. The screen shows only the reading's age, which stands in for the gust's, and the info dialog says gusts can lag. The feed itself also runs up to an hour behind at times, so every reading is shown with its age rather than called live.
+- **Every station is fetched; eight are drawn.** `src/data/stations.ts` lists all 24 Mammoth stations by Mammoth's own id (`MM-SUM`), with the NWS id where NWS carries one (`MTH03`), and `useObservations` reads every one of them (keyed by Mammoth's id) so the data is on hand for interpolating between stations later. `src/data/beacons.ts` picks the eight drawn on the map; each beacon sits at its station's coordinates. Add or swap a beacon by pointing `weatherStation` at another station there.
+- **One station per beacon, one feed per station.** A beacon shows its own station's values and the model's for anything that station doesn't measure, never a neighbour's. A station's reading comes whole from Mammoth's feed or from NWS, never a mix of the two. The info dialog says which.
+- **Stations measure different things.** Top of Broadway, Top of Gold Rush and Cloud Nine report wind but no temperature; Top of 3 and The Mill report temperature only. The comment on each line of `stations.ts` says what that station sent when it was surveyed. Each missing value falls back to the model on its own, and the screen says which.
+- **NWS gusts lag.** When a station falls back to NWS, its gust is usually 1 to 2 hours old, because NWS publishes a gust only after quality screening. Gusts up to 3 hours old are used; everything else must be under 2 hours old. The screen shows only the reading's age, and the info dialog says gusts can lag. Mammoth's own gust is the peak of the same 5-minute reading as the wind.
 - **The forecast is the National Weather Service's gridded forecast (NDFD)**, read from `api.weather.gov/gridpoints/REV/x,y`. The Reno office's forecasters start from NOAA's National Blend of Models and edit it, on a 2.5 km grid. Squares are that coarse, so Summit, Gold Rush and Cloud Nine share one forecast, as do McCoy, Broadway and Sesame. Values come in blocks (often three hours for wind, six for precipitation), so the hourly strip can repeat a number. It is not fine enough to resolve the summit ridge, so expect forecast gusts to differ from the stations; `reports/High resolution ski wind models.md` has the research and the plan for per-station correction. On 16 November 2026 it was within about 9 mph of measured gusts across the eight beacons, against about 11 for the National Blend via Open-Meteo, which it replaced so the site can carry ads (Open-Meteo's free tier is non-commercial).
 - **Elevation corrects temperature, not wind.** A grid square's forecast is for its average ground height, which can be hundreds of metres off the station's (Top Station is about 360 m above its square). `beaconForecast` moves the temperature to the station's height at the standard 6.5 °C per km and works out feels-like from that. Wind is left as the square's.
-- **The Mountain Forecast's icons, in order of precedence:** thunder; snow (light, or heavy for moderate and heavy, and a rain and snow mix counts as snow); rain; fog; then "windy" when the sustained wind is 25 mph or more; then the cloud cover (sun or moon under 37.5%, sun or moon behind a cloud under 62.5%, cloud above). An hour the forecast gives no cloud cover for shows a dash and "Sky not forecast", never a sun. A "slight chance" of anything is drawn as the sky, though the words (read aloud and shown on hover) still say it. Sun or moon follows the sun's real height at the summit, not a fixed clock. The current wind is the same sustained wind the Summit card shows (measured when Top Station's neighbour has it, otherwise the forecast); later hours are always the forecast. On an upright phone the strip takes a row of its own under the toolbar, so the map is 46px shorter there. On an upright phone the status drops "Updated" and shows just the age ("12 min ago") to make room for the wind and temperature switch, and below about 368px the subtitle is left out too. On a phone on its side the toolbar is one row, so when it is narrow the subtitle and then the "Updated" status give way to the five hours (the card beside the map still says when it was updated).
+- **The Mountain Forecast's icons, in order of precedence:** thunder; snow (light, or heavy for moderate and heavy, and a rain and snow mix counts as snow); rain; fog; then "windy" when the sustained wind is 25 mph or more; then the cloud cover (sun or moon under 37.5%, sun or moon behind a cloud under 62.5%, cloud above). An hour the forecast gives no cloud cover for shows a dash and "Sky not forecast", never a sun. A "slight chance" of anything is drawn as the sky, though the words (read aloud and shown on hover) still say it. Sun or moon follows the sun's real height at the summit, not a fixed clock. The current wind is the same sustained wind the Summit card shows (measured at Top Station when it reports, otherwise the forecast); later hours are always the forecast. On an upright phone the strip takes a row of its own under the toolbar, so the map is 46px shorter there. On an upright phone the status drops "Updated" and shows just the age ("12 min ago") to make room for the wind and temperature switch, and below about 368px the subtitle is left out too. On a phone on its side the toolbar is one row, so when it is narrow the subtitle and then the "Updated" status give way to the five hours (the card beside the map still says when it was updated).
 - **Wind bands are rough guides** (calm under 20 mph gusts, windy 20 to 39, strong 40 and up), not Mammoth's rules for running lifts.
 - **Caching.** A forecast is reused for 10 minutes and station readings for 5 (NWS caches them for 5). The last one is kept in `localStorage` so beacons show immediately on reload, and stays on screen (labelled with its age) if a refresh fails.
 

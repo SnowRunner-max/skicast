@@ -1,4 +1,4 @@
-import { measuredBy, modeledFields, resolveCurrent, windChillF } from './current'
+import { modeledFields, resolveCurrent, windChillF } from './current'
 import { mammothForecasts } from './__fixtures__/nwsGrid'
 import type { Observation } from '../types'
 
@@ -12,7 +12,8 @@ const eagleTop = byId('eagletop')
 const at = (...readings: Observation[]) => Object.fromEntries(readings.map((o) => [o.stationId, o]))
 
 const obs = (o: Partial<Observation>): Observation => ({
-  stationId: 'MTH03',
+  stationId: 'MM-SUM',
+  source: 'mammoth',
   observedAt: '2026-11-16T05:10:00.000Z',
   tempF: null,
   speedMph: null,
@@ -43,10 +44,12 @@ describe('resolveCurrent', () => {
     expect(c.status).toBe('station')
     expect(c.observedAt).toBe('2026-11-16T05:10:00.000Z')
     expect(c.gustAt).toBe('2026-11-16T04:00:00.000Z')
+    expect(c.station?.id).toBe('MM-SUM')
+    expect(c.feed).toBe('mammoth')
   })
 
   it('falls back to the model for just the values the station lacks', () => {
-    // Summit's station reports temperature and gusts only.
+    // Through NWS, the summit's station often arrives with temperature and gusts only.
     const c = resolveCurrent(summit, at(obs({ tempF: 22, gustMph: 37 })))
     expect(c.sources).toEqual({ temp: 'station', speed: 'model', gust: 'station', dir: 'model' })
     expect(c.gustMph).toBe(37)
@@ -78,56 +81,35 @@ describe('resolveCurrent', () => {
   })
 
   it('counts a temperature-only reading as measured, with a forecast gust', () => {
-    const c = resolveCurrent(eagleTop, at(obs({ stationId: 'MTH22', tempF: 34 })))
+    const c = resolveCurrent(eagleTop, at(obs({ stationId: 'MM-T15', tempF: 34 })))
     expect(c.status).toBe('station')
     expect(c.sources.gust).toBe('model')
     expect(c.gustMph).toBe(eagleTop.now.gustMph)
   })
 
-  it("fills what the summit's station lacks from its backup, value by value", () => {
-    const top = obs({ stationId: 'MTH03', observedAt: '2026-11-16T05:10:00.000Z', tempF: 22, gustMph: 37, gustAt: '2026-11-16T04:00:00.000Z' })
-    const tower = obs({ stationId: 'MTH12', observedAt: '2026-11-16T05:00:00.000Z', speedMph: 12, dirDeg: 250, gustMph: 20, gustAt: '2026-11-16T05:00:00.000Z' })
-    const c = resolveCurrent(summit, at(top, tower))
-    expect([c.tempF, c.speedMph, c.gustMph, c.dirDeg]).toEqual([22, 12, 37, 250])
-    expect(c.sources).toEqual({ temp: 'station', speed: 'station', gust: 'station', dir: 'station' })
-    expect(c.stationFor.temp?.id).toBe('MTH03')
-    expect(c.stationFor.gust?.id).toBe('MTH03') // the main station's gust wins
-    expect(c.stationFor.speed?.id).toBe('MTH12')
-    expect(c.stations.map((s) => s.id)).toEqual(['MTH03', 'MTH12'])
-    expect(c.gustAt).toBe('2026-11-16T04:00:00.000Z')
-    // Only as fresh as the older of the two.
-    expect(c.observedAt).toBe('2026-11-16T05:00:00.000Z')
-    expect(measuredBy(c).map(([s, fields]) => [s.id, fields])).toEqual([
-      ['MTH03', ['temperature', 'gusts']],
-      ['MTH12', ['sustained wind', 'wind direction']],
-    ])
-  })
-
-  it('reads the backup alone when the main station has nothing', () => {
-    const c = resolveCurrent(summit, { MTH03: null, ...at(obs({ stationId: 'MTH12', speedMph: 12, dirDeg: 250 })) })
-    expect(c.status).toBe('station')
-    expect(c.stations.map((s) => s.id)).toEqual(['MTH12'])
-    expect(c.sources).toEqual({ temp: 'model', speed: 'station', gust: 'model', dir: 'station' })
+  it('never borrows a value from a neighbouring station', () => {
+    // Gondola 2 Tower 10 sits 220 ft from Top Station but can read a tenth of its wind.
+    const tower = obs({ stationId: 'MM-G2T10', speedMph: 4, dirDeg: 144, gustMph: 13 })
+    const c = resolveCurrent(summit, { 'MM-SUM': null, ...at(tower) })
+    expect(c.status).toBe('model')
+    expect(c.station).toBeNull()
+    expect(c.speedMph).toBe(summit.now.speedMph)
   })
 
   it("ignores stations that are not the beacon's", () => {
     const mccoy = byId('mccoy')
-    const c = resolveCurrent(mccoy, at(obs({ stationId: 'MTH03', tempF: 10, speedMph: 30 })))
+    const c = resolveCurrent(mccoy, at(obs({ stationId: 'MM-SUM', tempF: 10, speedMph: 30 })))
     expect(c.status).toBe('model')
-    expect(c.stations).toEqual([])
+    expect(c.station).toBeNull()
   })
 
   it('never shows a measured sustained wind above its own measured gust', () => {
     expect(resolveCurrent(summit, at(obs({ speedMph: 18, gustMph: 12 }))).gustMph).toBe(18)
   })
 
-  it("does not raise one station's gust to meet another station's wind", () => {
-    const top = obs({ stationId: 'MTH03', tempF: 22, gustMph: 25, gustAt: '2026-11-16T04:00:00.000Z' })
-    const tower = obs({ stationId: 'MTH12', speedMph: 30, dirDeg: 250, gustMph: 34, gustAt: '2026-11-16T05:00:00.000Z' })
-    const c = resolveCurrent(summit, at(top, tower))
-    expect(c.stationFor.gust?.id).toBe('MTH03')
-    expect(c.stationFor.speed?.id).toBe('MTH12')
-    expect([c.speedMph, c.gustMph]).toEqual([30, 25]) // MTH03 reported 25; it is not shown as 30
+  it('says which feed the reading came from', () => {
+    const c = resolveCurrent(summit, at(obs({ source: 'nws', tempF: 22 })))
+    expect(c.feed).toBe('nws')
   })
 
   it('does not raise a measured gust to meet a forecast wind', () => {
