@@ -106,8 +106,9 @@ export function parseObservations(raw: unknown, stationId: string, nowMs: number
 }
 
 /**
- * GETs JSON from the NWS API, giving up after `timeoutMs` so one slow request
- * never holds up the screen. Also stops when `signal` aborts.
+ * GETs JSON, giving up after `timeoutMs` so one slow request never holds up
+ * the screen. Also stops when `signal` aborts. Used for the NWS API and for
+ * /api/stations alike.
  */
 export async function fetchJson(url: string, timeoutMs: number, signal?: AbortSignal): Promise<unknown> {
   const timeout = new AbortController()
@@ -116,7 +117,7 @@ export async function fetchJson(url: string, timeoutMs: number, signal?: AbortSi
   signal?.addEventListener('abort', onAbort)
   try {
     const res = await fetch(url, { signal: timeout.signal, headers: { Accept: 'application/geo+json' } })
-    if (!res.ok) throw new Error(`NWS answered ${res.status} for ${url.replace(NWS_BASE_URL, '')}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status} for ${url.replace(NWS_BASE_URL, 'NWS ')}`)
     return await res.json()
   } finally {
     clearTimeout(timer)
@@ -137,12 +138,14 @@ export type ObservationMap = Record<string, Observation | null>
  * One NWS request per station, in parallel, keyed by Mammoth's id. A slow or
  * broken station only loses its own readings; it never holds up the others or
  * the forecast. A station NWS does not carry maps to null without a request.
+ *
+ * @param nowMs  The clock readings are aged against; pass the caller's so one fetch uses one time.
  */
 export async function fetchObservations(
   stations: readonly Pick<Station, 'id' | 'nwsId'>[],
   signal?: AbortSignal,
+  nowMs: number = Date.now(),
 ): Promise<ObservationMap> {
-  const nowMs = Date.now()
   const entries = await Promise.all(
     stations.map(async (station) => {
       try {

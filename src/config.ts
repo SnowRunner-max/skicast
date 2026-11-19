@@ -17,8 +17,9 @@ export const FORECAST_SOURCE = { name: 'National Weather Service', short: 'NWS' 
 export const FORECAST_TIMEOUT_MS = 10_000
 
 /**
- * Mammoth Mountain's own weather stations report through the National Weather
- * Service's public API. It is free, needs no key and allows cross-origin reads.
+ * The National Weather Service's public API: the forecast, and the fallback
+ * for any station Mammoth's own feed has nothing fresh for. It is free, needs
+ * no key and allows cross-origin reads.
  */
 export const NWS_BASE_URL = 'https://api.weather.gov'
 
@@ -33,11 +34,13 @@ export const MAMMOTH_SNAPSHOT_URL = './api/stations'
 export const MAMMOTH_TIMEOUT_MS = 10_000
 
 /**
- * A Mammoth reading at most this old is used without asking NWS. Stations
- * report every 5 minutes, so an older one means the station has stalled. An
- * older one is still kept if NWS has nothing newer.
+ * Mammoth's reading takes precedence while it is at most this old, even when
+ * NWS has a newer one. Stations report every 5 minutes, so this is one report
+ * plus one missed cycle: only after that is the station treated as stalled and
+ * NWS asked, and a newer NWS reading used. An older Mammoth reading is still
+ * kept if NWS has nothing newer.
  */
-export const MAMMOTH_FRESH_MS = 30 * 60 * 1000
+export const MAMMOTH_FRESH_MS = 10 * 60 * 1000
 
 /** Station readings are refetched this often: Mammoth's stations report every 5 minutes, and NWS caches for 5. */
 export const OBSERVATION_TTL_MS = 5 * 60 * 1000
