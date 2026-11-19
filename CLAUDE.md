@@ -32,7 +32,7 @@ Every push or merge to `main` triggers a Netlify production deploy, and each one
 Versions are `MAJOR.MINOR.PATCH`. While the major version is `0`, the app is pre-launch.
 
 - **Major (`X.0.0`)**: a change that alters what the app fundamentally is or how people use it, such as a new screen layout, a different data source or region, or dropping a feature. `1.0.0` marks the first version ready for people beyond the developer.
-- **Minor (`0.Y.0`)**: a normal release, with new features or visible improvements that don't change the app's basic shape. Most releases are minor.
-- **Hotfix (`0.0.Z`)**: a fix for something broken in production that can't wait for the next release, such as a crash, wrong data or a broken deploy. No features.
+- **Minor (`X.Y.0`)**: a normal release, with new features or visible improvements that don't change the app's basic shape. Most releases are minor.
+- **Hotfix (`X.Y.Z`)**: a fix for something broken in production that can't wait for the next release, such as a crash, wrong data or a broken deploy. No features. Keep production's major and minor and bump the patch, so a hotfix to `0.2.0` is `0.2.1`, and a second one is `0.2.2`.
 
-Hotfixes are the one exception to the flow. Branch `SkiCast-X.Y.Z` (patch bumped) from `main`, open the PR into `main`, check its preview, and merge it. That's one production deploy, so remind the user of the cost as usual. Then merge `main` into the open release branch so the fix isn't lost, and make sure the release branch's version is still higher than the hotfix's.
+Hotfixes are the one exception to the flow. Branch `SkiCast-X.Y.Z` (production's version with the patch bumped) from `main`, open the PR into `main`, check its preview, and merge it. That's one production deploy, so remind the user of the cost as usual. Then merge `main` into the open release branch so the fix isn't lost, and make sure the release branch's version is still higher than the hotfix's.
