@@ -153,6 +153,6 @@ describe('fetchForecast', () => {
 
   it('fails when a square fails twice', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(new Response('down', { status: 503 }))))
-    await expect(fetchForecast(BEACONS.slice(0, 1))).rejects.toThrow('NWS answered 503 for /gridpoints/REV/57,17')
+    await expect(fetchForecast(BEACONS.slice(0, 1))).rejects.toThrow('HTTP 503 for NWS /gridpoints/REV/57,17')
   })
 })

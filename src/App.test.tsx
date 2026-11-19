@@ -142,6 +142,25 @@ describe('App', () => {
     expect(forecastCalls(fetchMock)).toHaveLength(0)
   })
 
+  it('drops a saved forecast over six hours old, since its next six hours are all past', async () => {
+    stubFetch(ok)
+    const first = render(<App />)
+    await screen.findByRole('button', { name: /^Summit, gusts 24 mph/ })
+    first.unmount()
+
+    // Age the saved copy past the limit, as if the phone had been in a pocket all day.
+    const key = 'skicast:forecast:v4'
+    const saved = JSON.parse(localStorage.getItem(key)!) as { fetchedAt: string }[]
+    const old = new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString()
+    localStorage.setItem(key, JSON.stringify(saved.map((f) => ({ ...f, fetchedAt: old }))))
+
+    clearForecastCache()
+    const fetchMock = stubFetch(() => new Promise<Response>(() => {}))
+    render(<App />)
+    expect(screen.queryByRole('button', { name: /^Summit, gusts/ })).not.toBeInTheDocument()
+    expect(forecastCalls(fetchMock).length).toBeGreaterThan(0)
+  })
+
   it('says so when the forecast cannot be loaded, and retries', async () => {
     const fetchMock = stubFetch(() => Promise.resolve(new Response('nope', { status: 500 })))
     render(<App />)

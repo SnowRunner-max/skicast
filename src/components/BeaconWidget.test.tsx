@@ -121,7 +121,7 @@ describe('BeaconWidget', () => {
   })
 
   it('offers a retry when the first load fails', async () => {
-    const { onRefresh } = renderWidget({ forecast: null, error: 'NWS answered 500' })
+    const { onRefresh } = renderWidget({ forecast: null, error: 'HTTP 500 for NWS /gridpoints/REV/57,17' })
     expect(screen.getByRole('alert')).toHaveTextContent("Couldn't load the forecast")
     await userEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(onRefresh).toHaveBeenCalledOnce()
